@@ -1,2 +1,3 @@
 *.log
 dotfiles/hypr/monitors.lua
+__pycache__/
