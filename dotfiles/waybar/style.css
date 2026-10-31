@@ -1,0 +1,38 @@
+/* Sober neutral theme: greys, colour only for warnings.
+   bg #161616 · surface #262626 · text #d4d4d4 · dim #8a8a8a · active #e0e0e0 */
+* {
+    font-family: "JetBrainsMono Nerd Font", "Font Awesome 6 Free", monospace;
+    font-size: 13px;
+    min-height: 0;
+    transition: none;   /* no animations */
+    animation: none;
+}
+
+window#waybar {
+    background: rgba(22, 22, 22, 0.92);
+    color: #d4d4d4;
+}
+
+#network, #bluetooth, #pulseaudio, #custom-brightness, #battery, #custom-power, #clock, #workspaces {
+    padding: 0 10px;
+    margin: 4px 0;
+    border-radius: 6px;
+    background: #262626;
+}
+
+#workspaces button {
+    padding: 0 6px;
+    color: #8a8a8a;
+}
+#workspaces button.active {
+    color: #161616;
+    background: #d4d4d4;
+    border-radius: 6px;
+}
+
+#network.disconnected, #bluetooth.off, #bluetooth.disabled, #pulseaudio.muted { color: #6a6a6a; }
+#battery.warning:not(.charging)  { color: #c9a85a; }
+#battery.critical:not(.charging) { color: #c46a6a; }
+
+/* privacy: only visible while mic / screen share are in use */
+#privacy { padding: 0 8px; margin: 4px 0; border-radius: 6px; background: #c46a6a; color: #161616; }

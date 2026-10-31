@@ -1,0 +1,119 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 30,
+    "spacing": 6,
+    "modules-left": [],
+    "modules-center": [
+        "hyprland/workspaces"
+    ],
+    "modules-right": [
+        "privacy",
+        "network",
+        "bluetooth",
+        "pulseaudio",
+        "custom/brightness",
+        "battery",
+        "custom/power",
+        "clock"
+    ],
+    "network": {
+        "format-wifi": "{icon} {essid}",
+        "format-icons": [
+            "󰤟",
+            "󰤢",
+            "󰤥",
+            "󰤨"
+        ],
+        "format-ethernet": "󰈀 {ifname}",
+        "format-disconnected": "󰖪 off",
+        "tooltip-format-wifi": "Wi-Fi: {essid} ({signalStrength}%)\n{ipaddr}\nclick: pick network · right-click: advanced",
+        "on-click": "~/.config/waybar/scripts/wifi-menu.sh",
+        "on-click-right": "nm-connection-editor",
+        "tooltip-format-disconnected": "Wi-Fi: disconnected\nclick: pick network"
+    },
+    "bluetooth": {
+        "format": "󰂯 on",
+        "format-off": "󰂲 off",
+        "format-disabled": "󰂲 off",
+        "format-connected": "󰂱 {device_alias}",
+        "tooltip-format": "Bluetooth: {status}",
+        "tooltip-format-connected": "Bluetooth:\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "{device_alias}",
+        "on-click": "blueman-manager"
+    },
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "󰝟 muted",
+        "format-icons": {
+            "default": [
+                "󰕿",
+                "󰖀",
+                "󰕾"
+            ]
+        },
+        "tooltip-format": "Volume: {volume}% ({desc})\nclick: mixer · right-click: mute · scroll: adjust",
+        "on-click": "pavucontrol",
+        "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+    },
+    "custom/brightness": {
+        "exec": "~/.config/waybar/scripts/brightness.sh",
+        "return-type": "json",
+        "interval": 5,
+        "signal": 8,
+        "on-scroll-up": "brightnessctl -q -c backlight set 5%+ && pkill -RTMIN+8 waybar",
+        "on-scroll-down": "brightnessctl -q -c backlight -n2 set 5%- && pkill -RTMIN+8 waybar",
+        "on-click": "~/.config/waybar/scripts/brightness.sh kbd-cycle && pkill -RTMIN+8 waybar",
+        "on-click-right": "brightnessctl -q -d kbd_backlight set 0 && pkill -RTMIN+8 waybar"
+    },
+    "battery": {
+        "interval": 10,
+        "states": {
+            "warning": 25,
+            "critical": 10
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": "󰂄 {capacity}%",
+        "format-plugged": "󰚥 {capacity}%",
+        "format-icons": [
+            "󰁺",
+            "󰁻",
+            "󰁼",
+            "󰁽",
+            "󰁾",
+            "󰁿",
+            "󰂀",
+            "󰂁",
+            "󰂂",
+            "󰁹"
+        ],
+        "tooltip-format": "Battery: {capacity}% · {timeTo}"
+    },
+    "custom/power": {
+        "exec": "~/.config/waybar/scripts/power.sh",
+        "return-type": "json",
+        "interval": 5
+    },
+    "hyprland/workspaces": {
+        "format": "{id}"
+    },
+    "clock": {
+        "format": "󰅐 {:%a %d %b  %H:%M}",
+        "tooltip-format": "<tt>{calendar}</tt>"
+    },
+    "privacy": {
+        "icon-size": 14,
+        "icon-spacing": 6,
+        "transition-duration": 0,
+        "modules": [
+            {
+                "type": "screenshare",
+                "tooltip": true
+            },
+            {
+                "type": "audio-in",
+                "tooltip": true
+            }
+        ]
+    }
+}
