@@ -64,7 +64,7 @@
         "on-scroll-up": "brightnessctl -q -c backlight set 5%+ && pkill -RTMIN+8 waybar",
         "on-scroll-down": "brightnessctl -q -c backlight -n2 set 5%- && pkill -RTMIN+8 waybar",
         "on-click": "~/.config/waybar/scripts/brightness.sh kbd-cycle && pkill -RTMIN+8 waybar",
-        "on-click-right": "brightnessctl -q -d kbd_backlight set 0 && pkill -RTMIN+8 waybar"
+        "on-click-right": "brightnessctl -q -d '*kbd_backlight*' set 0 && pkill -RTMIN+8 waybar"
     },
     "battery": {
         "interval": 10,

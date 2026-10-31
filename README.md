@@ -1,7 +1,9 @@
-# Hyprland on Fedora Asahi (Apple silicon MacBooks)
+# Hyprland on Fedora (Apple silicon MacBooks and amd64 PCs)
 
 My personal, fast and quiet Hyprland desktop for Apple silicon MacBooks running
-**Fedora Asahi Remix**. One script takes a fresh *minimal* install to the full desktop.
+**Fedora Asahi Remix**, and for **amd64 PCs** running Fedora. One script takes a fresh
+*minimal* install to the full desktop. The script detects the hardware and only runs the
+steps that apply to it.
 
 - **No animations anywhere**: Hyprland, the lock screen, the bar, GTK apps and the terminal.
 - **Neutral grey theme** for the desktop, with light-mode apps and websites.
@@ -13,8 +15,10 @@ My personal, fast and quiet Hyprland desktop for Apple silicon MacBooks running
   on the 14"/16" MacBook Pro.
 
 Tested on a **MacBook Air M1** with Fedora Asahi Remix 44 and Hyprland 0.57.
-The **MacBook Pro 14"/16" (M1 Pro/Max)** path is supported but hasn't been tested on
-real hardware yet.
+Supported but not yet tested on real hardware:
+- **MacBook Pro 14"/16" (M1 Pro/Max)**
+- **amd64 PCs with AMD (or Intel) graphics.** Written for an AMD desktop with a 5K and a
+  1440p monitor. NVIDIA isn't supported: the script warns and doesn't install its drivers.
 
 ---
 
@@ -30,6 +34,16 @@ curl https://fedora-asahi-remix.org/install | sh
 
 Pick **Fedora Asahi Remix … Minimal** and follow the prompts. Boot into it and finish the
 first-boot setup: create your user and make it an **administrator** (in the `wheel` group).
+
+<details><summary><b>On a PC instead</b></summary>
+
+Download **Fedora Everything** (the netinstall ISO) from fedoraproject.org, boot it, and in
+*Software Selection* choose **Minimal Install**. Create your user as an **administrator**.
+Wired network works out of the box. For Wi-Fi, use `nmtui` after the first boot.
+
+PC support currently lives on the **`amd64` branch**, so clone it with
+`git clone -b amd64 https://github.com/benjamin-ipinfo/hyprland-config.git` in step 3.
+</details>
 
 ### 2. Get online and install git
 
@@ -70,8 +84,11 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 |---|---|
 | Desktop | Hyprland (Lua config), waybar, hyprlock, hypridle, hyprpaper, mako notifications, fuzzel launcher, kitty terminal |
 | Login | `ly` on tty2, no animation, remembers the last user and session |
-| Keyboard | `hid_apple`: **Cmd and Option swapped**, **Fn and left Ctrl swapped**, F-keys first. Built into the initramfs, so it applies from early boot. |
-| Power | Lid/power key locks, sleep disabled, 90% charge limit (80% if the firmware only allows that), clean shutdown at 2%, low-battery notifications at 15% and 5% |
+| Keyboard (Mac) | `hid_apple`: **Cmd and Option swapped**, **Fn and left Ctrl swapped**, F-keys first. Built into the initramfs, so it applies from early boot. |
+| Power (Mac) | Lid/power key locks, sleep disabled |
+| Power (PC) | Fedora defaults: sleep works (a laptop suspends when the lid closes) |
+| Battery (any laptop) | 90% charge limit if the firmware supports it (80% if it only allows that), clean shutdown at 2%, low-battery notifications at 15% and 5%. Skipped on desktops. |
+| PC extras | Monitors auto-configured on first login (see below), AMD hardware video decoding (`mesa-va-drivers-freeworld`), firmware updates via `fwupd`, Print-key screenshots |
 | Apps | Thunar (+ USB/phone/trash support, thumbnails, archives), Brave (default browser), Firefox + uBlock Origin (work apps), Loupe (images), mpv (video/audio), GNOME Calculator, git, vim, htop, btop |
 | Codecs | RPM Fusion ffmpeg (H.264, HEVC, VP9, AV1) |
 | Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. |
@@ -87,6 +104,23 @@ Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's offici
 | MacBook Air M1 / Pro 13" | 2560×1600, scale 1.667 (looks like 1536×960) | |
 | MacBook Pro 14" | 3024×1964 @ 120 Hz, scale 2 (looks like 1512×982) | Adds the kernel argument `appledrm.show_notch=1`; the bar fills the strip beside the notch |
 | MacBook Pro 16" | 3456×2234 @ 120 Hz, scale 2 (looks like 1728×1117) | Same notch handling |
+| PC | Every connected monitor | Configured on first login (see below) |
+
+### PC monitors
+
+On the first Hyprland login, `hypr/scripts/monitors.py` reads the connected monitors and
+writes `~/.config/hypr/monitors.lua`. That file is not tracked in git. For each monitor
+it picks:
+- the **highest resolution**, then the **highest refresh rate** offered at that resolution
+- the **scale from pixel density**: 2 at 190+ ppi (27" 5K), 1.5 at 150+ ppi (27" 4K),
+  otherwise 1 (27" 1440p), so text is the same size on every screen
+- **VRR** while a fullscreen app runs, on monitors that can do 100 Hz or more
+- a **position** with the highest-resolution monitor on the left and the others to its right
+
+For example, a 27" 5K plus a 27" 1440p gives `5120x2880@120, scale 2` plus
+`2560x1440@60, scale 1`, both 2560 px wide logically. Edit `monitors.lua` to change the
+order or rate, or run `monitors-setup` to regenerate it, for instance after changing
+monitors. Check the result with `hyprctl monitors`.
 
 If 120 Hz isn't available, Hyprland falls back to the panel's standard mode.
 
@@ -94,7 +128,10 @@ If 120 Hz isn't available, Hyprland falls back to the panel's standard mode.
 
 ## Keys
 
-Because Cmd and Option are swapped, **physical ⌘ Cmd sends Alt**, and **physical ⌥ Option
+On a **PC keyboard**, *Super* is the Windows key, **Print** captures an area and
+**Shift+Print** the whole screen. Everything else in the table works the same.
+
+On the **Macs**, because Cmd and Option are swapped, **physical ⌘ Cmd sends Alt**, and **physical ⌥ Option
 is the Super key** (shown as *Super* below). The physical left **Ctrl** key acts as
 **Fn**, so the media and brightness keys on the top row need left Ctrl held down.
 

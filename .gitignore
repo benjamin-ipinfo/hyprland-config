@@ -1,1 +1,2 @@
 *.log
+dotfiles/hypr/monitors.lua

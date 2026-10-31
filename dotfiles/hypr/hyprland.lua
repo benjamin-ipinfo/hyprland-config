@@ -1,38 +1,52 @@
--- Hyprland config — MacBook Air M1 (Fedora Asahi)
+-- Hyprland config — Apple silicon MacBooks (Fedora Asahi) and amd64 PCs (Fedora)
 -- Hyprland >= 0.57 uses Lua config. API stubs: /usr/share/hypr/stubs/hl.meta.lua
 -- Docs: https://wiki.hypr.land/configuring/
 
+local function read(path)
+    local f = io.open(path, "r")
+    if not f then return "" end
+    local s = f:read("*a") or ""
+    f:close()
+    return s
+end
+local HOME = os.getenv("HOME")
+
 ---- MONITORS ----
--- Per-machine panel settings, detected from the device-tree model string, e.g.
+-- Apple silicon: built-in panel, detected from the device-tree model string, e.g.
 --   "Apple MacBook Air (M1, 2020)" / "Apple MacBook Pro (14-inch, M1 Pro, 2021)"
 --   Air 13" / Pro 13"  2560x1600         -> scale 1.666667 (looks like 1536x960)
 --   Pro 14" (notch)    3024x1964 @120Hz  -> scale 2        (looks like 1512x982, macOS default)
 --   Pro 16" (notch)    3456x2234 @120Hz  -> scale 2        (looks like 1728x1117, macOS default)
--- The notch area only exists with kernel arg appledrm.show_notch=1 (install.sh sets it on
--- 14"/16"); waybar then uses config-notch.jsonc (bar as tall as the notch, nothing centred).
--- If a mode isn't offered by the kernel, Hyprland falls back to the preferred mode.
-local function model()
-    local f = io.open("/proc/device-tree/model", "r")
-    if not f then return "" end
-    local m = f:read("*a") or ""
-    f:close()
-    return m
+--   The notch area only exists with kernel arg appledrm.show_notch=1 (install.sh sets it on
+--   14"/16"); waybar then uses config-notch.jsonc (bar as tall as the notch, nothing centred).
+-- PC (amd64): monitors.lua next to this file, generated on first login by
+--   scripts/monitors.py (max resolution, max refresh, scale by pixel density, side by side).
+--   Edit it freely, or regenerate with: monitors-setup  (it is not tracked in git).
+-- If a mode isn't offered, Hyprland falls back to the preferred mode.
+local machine  = read("/proc/device-tree/model")
+local is_apple = machine:find("^Apple") ~= nil
+local panel    = { notch = false }
+
+if is_apple then
+    panel = { mode = "preferred", scale = 1.666667, notch = false }
+    if machine:find("14%-inch") then
+        panel = { mode = "3024x1964@120", scale = 2, notch = true }
+    elseif machine:find("16%-inch") then
+        panel = { mode = "3456x2234@120", scale = 2, notch = true }
+    end
+    hl.monitor({ output = "eDP-1", mode = panel.mode, position = "auto", scale = panel.scale })
+else
+    local monitors = HOME .. "/.config/hypr/monitors.lua"
+    if read(monitors) ~= "" then dofile(monitors) end
 end
-local machine = model()
-local panel = { mode = "preferred", scale = 1.666667, notch = false }
-if machine:find("14%-inch") then
-    panel = { mode = "3024x1964@120", scale = 2, notch = true }
-elseif machine:find("16%-inch") then
-    panel = { mode = "3456x2234@120", scale = 2, notch = true }
-end
-hl.monitor({ output = "eDP-1", mode = panel.mode, position = "auto", scale = panel.scale })
-hl.monitor({ output = "",      mode = "preferred", position = "auto", scale = "auto" })
+-- anything not configured above (new/external screens): sensible defaults
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
 
 ---- PROGRAMS ----
 local terminal = "kitty"
 local menu     = "fuzzel"
 local files    = "thunar"
-local mod      = "SUPER" -- the Cmd key
+local mod      = "SUPER" -- Option key on the Macs (Cmd/Option swapped), Windows key on PCs
 
 ---- AUTOSTART ----
 hl.on("hyprland.start", function()
@@ -41,7 +55,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("hyprpaper")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
-    hl.exec_cmd("~/.config/hypr/scripts/battery-notify.sh")
+    hl.exec_cmd("~/.config/hypr/scripts/battery-notify.sh") -- exits by itself without a battery
+    if not is_apple and read(HOME .. "/.config/hypr/monitors.lua") == "" then
+        hl.exec_cmd("~/.config/hypr/scripts/monitors.py --apply") -- first login on a PC
+    end
 end)
 
 ---- ENVIRONMENT ----
@@ -74,7 +91,7 @@ hl.config({
     },
 })
 
----- INPUT: Mac keyboard + trackpad ----
+---- INPUT: keyboard + touchpad ----
 hl.config({
     input = {
         kb_layout    = "us",
@@ -103,6 +120,8 @@ hl.bind("ALT + F4",            hl.dsp.window.close())
 -- Mac-like screenshots (Super+Shift+3/4 are taken by move-to-workspace)
 hl.bind(mod .. " + ALT + 3",   hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mod .. " + ALT + 4",   hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh area"))
+hl.bind("Print",               hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh area")) -- PC keyboards
+hl.bind("SHIFT + Print",       hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mod .. " + L",         hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exit())
 hl.bind(mod .. " + F",         hl.dsp.window.fullscreen())
@@ -133,17 +152,20 @@ hl.bind("XF86AudioMute",         hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_
 local bl = function(args) return hl.dsp.exec_cmd("brightnessctl -q " .. args .. " && pkill -RTMIN+8 waybar") end
 hl.bind("XF86MonBrightnessUp",           bl("-c backlight -e4 -n2 set 5%+"), held)
 hl.bind("XF86MonBrightnessDown",         bl("-c backlight -e4 -n2 set 5%-"), held)
-hl.bind("SHIFT + XF86MonBrightnessUp",   bl("-d kbd_backlight set 10%+"),         held)
-hl.bind("SHIFT + XF86MonBrightnessDown", bl("-d kbd_backlight set 10%-"),         held)
+hl.bind("SHIFT + XF86MonBrightnessUp",   bl("-d '*kbd_backlight*' set 10%+"),     held)
+hl.bind("SHIFT + XF86MonBrightnessDown", bl("-d '*kbd_backlight*' set 10%-"),     held)
 hl.bind("XF86AudioPlay",         hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioNext",         hl.dsp.exec_cmd("playerctl next"),       { locked = true })
 hl.bind("XF86AudioPrev",         hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 
--- Lid: logind locks the session (HandleLidSwitch=lock, no suspend); here we
--- just switch the internal panel off while closed and back on when opened.
-local lid = "Apple SMC power/lid events"
-hl.bind("switch:on:"  .. lid, hl.dsp.dpms({ action = "off", monitor = "eDP-1" }), { locked = true })
-hl.bind("switch:off:" .. lid, hl.dsp.dpms({ action = "on",  monitor = "eDP-1" }), { locked = true })
+-- Lid (laptops only): logind handles lock/suspend; here we switch the internal panel
+-- off while closed and back on when opened. The switch name is looked up in
+-- /proc/bus/input/devices ("Apple SMC power/lid events" on Macs, "Lid Switch" on PCs).
+local lid = read("/proc/bus/input/devices"):match('N: Name="([^"]*[Ll]id[^"]*)"')
+if lid then
+    hl.bind("switch:on:"  .. lid, hl.dsp.dpms({ action = "off", monitor = "eDP-1" }), { locked = true })
+    hl.bind("switch:off:" .. lid, hl.dsp.dpms({ action = "on",  monitor = "eDP-1" }), { locked = true })
+end
 
 ---- WINDOW RULES ----
 -- Never lock/blank the screen while a fullscreen window is shown (video, slides)

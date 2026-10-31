@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Hyprland desktop for Fedora Asahi Remix (Apple silicon MacBooks)
+# Hyprland desktop for Fedora — Apple silicon MacBooks (Fedora Asahi Remix) and
+# amd64 PCs (Fedora, AMD/Intel graphics).
 #
-# Reproduces the full setup on a fresh *minimal* Fedora Asahi install.
-# Tested on: MacBook Air M1 (Fedora Asahi Remix 44). Hardware-specific values
-# (screen scale, backlight, battery) are detected at runtime, so it also suits
-# MacBook Pro M1 Pro/Max.
+# Reproduces the full setup on a fresh *minimal* Fedora install. The hardware is
+# detected at the start and only the matching steps run:
+#   Apple silicon  keyboard swaps, notch, "never sleep" lid policy, Mac charge limit,
+#                  built-in panel scale per model (in hyprland.lua)
+#   PC             AMD hardware video decoding, firmware updates (fwupd), multi-monitor
+#                  auto-setup on first login (hypr/scripts/monitors.py), normal sleep
+#   any laptop     battery charge limit (if the firmware supports it), power-off at 2%
+# Tested on: MacBook Air M1 (Fedora Asahi Remix 44). PC path: written for an AMD
+# desktop (AMD GPU, 5K + 1440p monitors), not yet run on real hardware.
 #
 # Usage (as your normal user, not root; sudo will ask for your password):
 #   sudo dnf install -y git
 #   git clone https://github.com/benjamin-ipinfo/hyprland-config.git ~/Git/hyprland-config
+#     (PC support lives on the amd64 branch until merged: add  -b amd64)
 #   cd ~/Git/hyprland-config && ./install.sh
 #   reboot, pick "Hyprland" in ly
 #
@@ -22,10 +29,43 @@ DOT="$REPO_DIR/dotfiles"
 exec > >(tee -a "$REPO_DIR/install.log") 2>&1
 
 step() { printf '\n\033[1;34m==> [%s] %s\033[0m\n' "$(date '+%F %T')" "$*"; }
+warn() { printf '\033[1;33m!!  %s\033[0m\n' "$*"; }
 [ "$EUID" -ne 0 ] || { echo "Run as your normal user, not root."; exit 1; }
 FEDORA=$(rpm -E %fedora)
-MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo unknown)
-step "Detected: $MODEL, Fedora $FEDORA, $(uname -r)"
+
+# =============================================================================
+# 0. Detect hardware
+# =============================================================================
+if [ -r /proc/device-tree/compatible ] && tr -d '\0' < /proc/device-tree/compatible | grep -q apple; then
+  PLATFORM=asahi
+  MODEL=$(tr -d '\0' < /proc/device-tree/model)
+  GPU=apple
+else
+  PLATFORM=pc
+  MODEL="$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true) $(cat /sys/class/dmi/id/product_name 2>/dev/null || true)"
+  GPU=unknown
+  for v in /sys/class/drm/card*/device/vendor; do
+    case "$(cat "$v" 2>/dev/null)" in
+      0x1002) GPU=amd ;;
+      0x8086) [ "$GPU" = unknown ] && GPU=intel ;;
+      0x10de) GPU=nvidia ;;
+    esac
+  done
+fi
+# System battery (macsmc-battery on Macs, BAT0/BAT1 on PC laptops; empty on desktops).
+# Wireless mice/keyboards also report type=Battery but with scope=Device: skip those.
+BAT=""
+for p in /sys/class/power_supply/*; do
+  if [ "$(cat "$p/type" 2>/dev/null || true)" = Battery ] && [ "$(cat "$p/scope" 2>/dev/null || true)" != Device ]; then
+    BAT=$p; break
+  fi
+done
+FORM=desktop; [ -n "$BAT" ] && FORM=laptop
+step "Detected: $MODEL | platform=$PLATFORM ($(uname -m)) gpu=$GPU form=$FORM | Fedora $FEDORA, $(uname -r)"
+if [ "$GPU" = nvidia ]; then
+  warn "NVIDIA GPU detected: this script does not install NVIDIA drivers (akmod-nvidia from RPM"
+  warn "Fusion nonfree + Hyprland env vars). Hyprland will likely not start on nouveau. Continuing."
+fi
 
 # Ask for the sudo password once and keep it alive (the full install takes >5 min)
 sudo -v
@@ -41,11 +81,11 @@ sudo dnf -y upgrade --refresh
 # =============================================================================
 step "Repositories: Hyprland COPR, RPM Fusion free, Brave"
 sudo dnf -y install dnf5-plugins policycoreutils-python-utils
-# Hyprland is not in Fedora; sdegler/hyprland builds for aarch64 (solopasha doesn't for F44)
+# sdegler/hyprland builds for aarch64 and x86_64 (solopasha doesn't for F44 aarch64)
 sudo dnf -y copr enable sdegler/hyprland
-# Full ffmpeg (HEVC etc.)
+# Full ffmpeg (HEVC etc.) and AMD hardware video decoding
 sudo dnf -y install "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm"
-# Brave (runs fine on Asahi's 16K pages)
+# Brave (also runs fine on Asahi's 16K pages)
 sudo dnf config-manager addrepo --overwrite \
   --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
 
@@ -63,15 +103,15 @@ PKGS=(
   pipewire-pulseaudio pavucontrol blueman network-manager-applet
   # hardware keys, screenshots, clipboard
   brightnessctl playerctl grim slurp wl-clipboard
-  # power diagnostics: `sensors`, `sudo powertop`; upower does the 2% power-off
+  # power diagnostics: `sensors`, `sudo powertop`; upower does the 2% power-off on laptops
   powertop lm_sensors upower
   # secrets (unlocked at login by ly's PAM)
   gnome-keyring gnome-keyring-pam
   # file manager + trash/USB/phones, thumbnails, archives
   Thunar thunar-volman thunar-archive-plugin tumbler ffmpegthumbnailer
   gvfs gvfs-mtp file-roller
-  # everyday apps / tools
-  xdg-user-dirs xdg-utils git vim-enhanced htop btop loupe gnome-calculator mpv
+  # everyday apps / tools (python3: monitor auto-setup script)
+  xdg-user-dirs xdg-utils git vim-enhanced htop btop loupe gnome-calculator mpv python3
   # browsers: Brave = default, Firefox (+ uBlock Origin) = logged-in work apps
   brave-browser firefox mozilla-ublock-origin
   # fonts: UI/bar + good on-screen replacements for web fonts + emoji + CJK
@@ -80,9 +120,26 @@ PKGS=(
   google-noto-serif-vf-fonts google-noto-color-emoji-fonts rsms-inter-vf-fonts
   google-roboto-fonts default-fonts-cjk-sans
 )
+if [ "$PLATFORM" = pc ]; then
+  # firmware updates (Macs get firmware through macOS instead); `vainfo` to check video decoding
+  PKGS+=(fwupd libva-utils)
+fi
 sudo dnf -y install --refresh "${PKGS[@]}"
-# RPM Fusion ffmpeg replaces Fedora's ffmpeg-free libraries
-sudo dnf -y install --allowerasing ffmpeg
+# RPM Fusion ffmpeg replaces Fedora's ffmpeg-free libraries. RPM Fusion sometimes lags a
+# Fedora update by a few days; then this can't resolve yet: don't abort, just re-run later.
+sudo dnf -y install --allowerasing ffmpeg \
+  || warn "RPM Fusion ffmpeg not installable right now (repo lagging?). Re-run ./install.sh later."
+
+if [ "$GPU" = amd ]; then
+  step "AMD: hardware video decoding (H.264/HEVC/AV1) via RPM Fusion's Mesa VA-API driver"
+  # Fedora's mesa-va-drivers has the patented codecs disabled; the freeworld build replaces it
+  # Pinned to the exact Fedora mesa version: if RPM Fusion hasn't caught up yet, retry later
+  sudo dnf -y install --allowerasing mesa-va-drivers-freeworld \
+    || warn "mesa-va-drivers-freeworld not installable right now (RPM Fusion lagging Fedora's mesa). Re-run ./install.sh later."
+fi
+if [ "$GPU" = intel ]; then
+  warn "Intel GPU: for hardware video decoding add RPM Fusion nonfree and install intel-media-driver."
+fi
 
 step "Pin Hyprland packages (COPR updates can break the Lua config; upgrade on purpose, see README)"
 mapfile -t HYPR_PKGS < <(rpm -qa --qf '%{name}\n' | grep -E '^(hypr|aquamarine$|xdg-desktop-portal-hyprland$)' | sort -u)
@@ -109,35 +166,37 @@ fi
 fc-cache -f
 
 # =============================================================================
-# 3. Keyboard + console (baked into the initramfs, rebuilt at the end)
+# 3. Apple silicon only: keyboard, console, notch (baked into the initramfs)
 # =============================================================================
-step "Keyboard: Cmd<->Option swapped (Cmd sends Alt), Fn<->left Ctrl swapped, F-keys first"
-echo 'options hid_apple swap_fn_leftctrl=1 fnmode=2 swap_opt_cmd=1' \
-  | sudo tee /etc/modprobe.d/hid_apple.conf
-step "Console: US keymap, large font for the Retina panel"
-printf 'KEYMAP="us"\nFONT="latarcyrheb-sun32"\n' | sudo tee /etc/vconsole.conf
+if [ "$PLATFORM" = asahi ]; then
+  step "Keyboard: Cmd<->Option swapped (Cmd sends Alt), Fn<->left Ctrl swapped, F-keys first"
+  echo 'options hid_apple swap_fn_leftctrl=1 fnmode=2 swap_opt_cmd=1' \
+    | sudo tee /etc/modprobe.d/hid_apple.conf
+  step "Console: US keymap, large font for the Retina panel"
+  printf 'KEYMAP="us"\nFONT="latarcyrheb-sun32"\n' | sudo tee /etc/vconsole.conf
 
-# MacBook Pro 14"/16": use the full panel incl. the strip beside the notch. hyprland.lua then
-# sets 3024x1964@120 (14") / 3456x2234@120 (16") at scale 2 and waybar fills the notch strip.
-if [[ "$MODEL" == *"14-inch"* || "$MODEL" == *"16-inch"* ]]; then
-  step "MacBook Pro 14/16\": kernel arg appledrm.show_notch=1 (takes effect after reboot)"
-  NOTCH=appledrm.show_notch=1
-  # current kernels (BLS entries)
-  sudo grubby --update-kernel=ALL --args="$NOTCH"
-  # future kernels: kernel-install reads /etc/kernel/cmdline, grub2-mkconfig reads /etc/default/grub
-  if [ -f /etc/kernel/cmdline ] && ! grep -q "$NOTCH" /etc/kernel/cmdline; then
-    sudo sed -i "1 s/\$/ $NOTCH/" /etc/kernel/cmdline
+  # MacBook Pro 14"/16": use the full panel incl. the strip beside the notch. hyprland.lua then
+  # sets 3024x1964@120 (14") / 3456x2234@120 (16") at scale 2 and waybar fills the notch strip.
+  if [[ "$MODEL" == *"14-inch"* || "$MODEL" == *"16-inch"* ]]; then
+    step "MacBook Pro 14/16\": kernel arg appledrm.show_notch=1 (takes effect after reboot)"
+    NOTCH=appledrm.show_notch=1
+    # current kernels (BLS entries); grubby also updates /etc/kernel/cmdline
+    sudo grubby --update-kernel=ALL --args="$NOTCH"
+    # future kernels: kernel-install reads /etc/kernel/cmdline, grub2-mkconfig reads /etc/default/grub
+    if [ -f /etc/kernel/cmdline ] && ! grep -q "$NOTCH" /etc/kernel/cmdline; then
+      sudo sed -i "1 s/\$/ $NOTCH/" /etc/kernel/cmdline
+    fi
+    if [ -f /etc/default/grub ] && ! grep -q "$NOTCH" /etc/default/grub; then
+      sudo sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\\(.*\\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\\1 $NOTCH\"/" /etc/default/grub
+    fi
+    sudo grubby --info=ALL | grep -E '^(kernel|args)='
   fi
-  if [ -f /etc/default/grub ] && ! grep -q "$NOTCH" /etc/default/grub; then
-    sudo sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\\(.*\\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\\1 $NOTCH\"/" /etc/default/grub
-  fi
-  sudo grubby --info=ALL | grep -E '^(kernel|args)='
 fi
 
 # =============================================================================
 # 4. Services, login manager
 # =============================================================================
-step "Security: no SSH server on a laptop (re-enable with: sudo systemctl enable --now sshd)"
+step "Security: no SSH server (re-enable with: sudo systemctl enable --now sshd)"
 sudo systemctl disable --now sshd.service 2>/dev/null || true
 
 step "Bluetooth, ly on tty2, boot to graphical target"
@@ -155,12 +214,18 @@ sudo semanage fcontext -a -t xdm_var_lib_t '/etc/ly/save\.txt' 2>/dev/null \
 sudo touch /etc/ly/save.txt
 sudo restorecon /etc/ly/save.txt
 
+if [ "$PLATFORM" = pc ]; then
+  step "Firmware updates: fwupd (check with: fwupdmgr get-updates)"
+  sudo systemctl enable --now fwupd-refresh.timer 2>/dev/null || true
+fi
+
 # =============================================================================
-# 5. Power: lid locks (never sleeps), battery care
+# 5. Power
 # =============================================================================
-step "logind: lid/power key lock, never suspend (s2idle is unreliable; screen-off idle ~1.4 W)"
-sudo mkdir -p /etc/systemd/logind.conf.d
-sudo tee /etc/systemd/logind.conf.d/10-lid-lock.conf >/dev/null <<'EOF'
+if [ "$PLATFORM" = asahi ]; then
+  step "logind: lid/power key lock, never suspend (s2idle is unreliable; screen-off idle ~1.4 W)"
+  sudo mkdir -p /etc/systemd/logind.conf.d
+  sudo tee /etc/systemd/logind.conf.d/10-lid-lock.conf >/dev/null <<'EOF'
 [Login]
 HandleLidSwitch=lock
 HandleLidSwitchExternalPower=lock
@@ -170,26 +235,34 @@ HandlePowerKey=lock
 HandleSuspendKey=ignore
 HandleHibernateKey=ignore
 EOF
-# undo: sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-
-step "Battery: stop charging at 90% (falls back to 80% if this SMC firmware only allows 80/100)"
-LIMIT_FILE=/sys/class/power_supply/macsmc-battery/charge_control_end_threshold
-LIMIT=90
-echo 90 | sudo tee "$LIMIT_FILE" >/dev/null 2>&1 || true
-if [ "$(cat "$LIMIT_FILE" 2>/dev/null)" != 90 ]; then
-  LIMIT=80
-  echo 80 | sudo tee "$LIMIT_FILE" >/dev/null 2>&1 || true
+  # undo: sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+  sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 fi
-echo "ACTION==\"add|change\", SUBSYSTEM==\"power_supply\", KERNEL==\"macsmc-battery\", ATTR{charge_control_end_threshold}=\"$LIMIT\"" \
-  | sudo tee /etc/udev/rules.d/90-battery-charge-limit.rules
-sudo udevadm control --reload
-echo "charge limit now: $(cat "$LIMIT_FILE" 2>/dev/null || echo 'not supported')%"
+# PCs keep Fedora's defaults: sleep works (lid = suspend on laptops, power button = power off).
 
-step "UPower: clean power-off at 2% (low-battery notifications: hypr/scripts/battery-notify.sh)"
-sudo mkdir -p /etc/UPower/UPower.conf.d
-printf '[UPower]\nCriticalPowerAction=PowerOff\nPercentageAction=2.0\n' \
-  | sudo tee /etc/UPower/UPower.conf.d/10-poweroff.conf
+if [ -n "$BAT" ]; then
+  LIMIT_FILE="$BAT/charge_control_end_threshold"
+  if [ -e "$LIMIT_FILE" ]; then
+    step "Battery: stop charging at 90% (falls back to 80% if the firmware only allows 80/100)"
+    LIMIT=90
+    echo 90 | sudo tee "$LIMIT_FILE" >/dev/null 2>&1 || true
+    if [ "$(cat "$LIMIT_FILE" 2>/dev/null)" != 90 ]; then
+      LIMIT=80
+      echo 80 | sudo tee "$LIMIT_FILE" >/dev/null 2>&1 || true
+    fi
+    echo "ACTION==\"add|change\", SUBSYSTEM==\"power_supply\", KERNEL==\"$(basename "$BAT")\", ATTR{charge_control_end_threshold}=\"$LIMIT\"" \
+      | sudo tee /etc/udev/rules.d/90-battery-charge-limit.rules
+    sudo udevadm control --reload
+    echo "charge limit now: $(cat "$LIMIT_FILE" 2>/dev/null || echo '?')%"
+  else
+    warn "This battery has no charge limit control; skipping."
+  fi
+
+  step "UPower: clean power-off at 2% (low-battery notifications: hypr/scripts/battery-notify.sh)"
+  sudo mkdir -p /etc/UPower/UPower.conf.d
+  printf '[UPower]\nCriticalPowerAction=PowerOff\nPercentageAction=2.0\n' \
+    | sudo tee /etc/UPower/UPower.conf.d/10-poweroff.conf
+fi
 
 # =============================================================================
 # 6. Dotfiles (symlinked: edit them in this repo)
@@ -201,8 +274,10 @@ for app in hypr waybar kitty fuzzel mako fontconfig; do
   if [ -e "$target" ] && [ ! -L "$target" ]; then mv "$target" "$target.bak.$(date +%s)"; fi
   ln -sfn "$DOT/$app" "$target"
 done
-chmod +x "$DOT"/waybar/scripts/*.sh "$DOT"/hypr/scripts/*.sh
+chmod +x "$DOT"/waybar/scripts/*.sh "$DOT"/hypr/scripts/*.sh "$DOT"/hypr/scripts/*.py
 ln -sfn "$HOME/.config/hypr/scripts/wallpaper.sh" "$HOME/.local/bin/wallpaper"
+# PCs: monitors.lua is generated on first Hyprland login; `monitors-setup` regenerates it
+ln -sfn "$HOME/.config/hypr/scripts/monitors.py" "$HOME/.local/bin/monitors-setup"
 fc-cache -f
 
 step "Default wallpaper (only if none chosen yet; change with: wallpaper /path/img)"
@@ -214,7 +289,7 @@ fi
 # =============================================================================
 # 7. User session settings
 # =============================================================================
-step "GTK: no animations, light apps/websites, unhinted subpixel fonts (227+ ppi panels)"
+step "GTK: no animations, light apps/websites, unhinted subpixel fonts"
 gsettings set org.gnome.desktop.interface enable-animations false
 gsettings set org.gnome.desktop.interface color-scheme 'prefer-light'
 gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita'
@@ -241,10 +316,16 @@ xdg-mime default mpv.desktop $(mimes mpv.desktop)
 # =============================================================================
 # 8. Finish
 # =============================================================================
-step "Rebuild initramfs for every installed kernel (keyboard + console font apply from early boot)"
-sudo dracut -f --regenerate-all
+if [ "$PLATFORM" = asahi ]; then
+  step "Rebuild initramfs for every installed kernel (keyboard + console font apply from early boot)"
+  sudo dracut -f --regenerate-all
+fi
 
 step "Validate Hyprland config"
 Hyprland --verify-config 2>&1 | sed -n '/Config parsing result/,$p'
 
 step "Done. Reboot and pick \"Hyprland\" in ly (not \"Hyprland (uwsm-managed)\")."
+if [ "$PLATFORM" = pc ]; then
+  echo "On first login the monitors are configured automatically (max resolution/refresh,"
+  echo "scale by pixel density). Check with: hyprctl monitors   Re-run with: monitors-setup"
+fi
