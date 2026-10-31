@@ -39,12 +39,10 @@ sudo dnf -y upgrade --refresh
 # =============================================================================
 # 1. Repositories
 # =============================================================================
-step "Repositories: Hyprland COPR, ungoogled-chromium COPR, RPM Fusion free, Brave"
+step "Repositories: Hyprland COPR, RPM Fusion free, Brave"
 sudo dnf -y install dnf5-plugins policycoreutils-python-utils
 # Hyprland is not in Fedora; sdegler/hyprland builds for aarch64 (solopasha doesn't for F44)
 sudo dnf -y copr enable sdegler/hyprland
-# Official Fedora build linked from the ungoogled-chromium GitHub README
-sudo dnf -y copr enable wojnilowicz/ungoogled-chromium
 # Full ffmpeg (HEVC etc.)
 sudo dnf -y install "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm"
 # Brave (runs fine on Asahi's 16K pages)
@@ -74,8 +72,8 @@ PKGS=(
   gvfs gvfs-mtp file-roller
   # everyday apps / tools
   xdg-user-dirs xdg-utils git vim-enhanced htop btop loupe gnome-calculator mpv
-  # browsers: Brave = default, ungoogled-chromium = logged-in work apps
-  brave-browser ungoogled-chromium
+  # browsers: Brave = default, Firefox (+ uBlock Origin) = logged-in work apps
+  brave-browser firefox mozilla-ublock-origin
   # fonts: UI/bar + good on-screen replacements for web fonts + emoji + CJK
   jetbrains-mono-fonts-all fontawesome-fonts-all
   liberation-sans-fonts liberation-serif-fonts liberation-mono-fonts
