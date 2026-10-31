@@ -74,7 +74,7 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 | Power | Lid/power key locks, sleep disabled, 90% charge limit (80% if the firmware only allows that), clean shutdown at 2%, low-battery notifications at 15% and 5% |
 | Apps | Thunar (+ USB/phone/trash support, thumbnails, archives), Brave (default browser), ungoogled-chromium (work apps), Loupe (images), mpv (video/audio), GNOME Calculator, git, vim, htop, btop |
 | Codecs | RPM Fusion ffmpeg (H.264, HEVC, VP9, AV1) |
-| Fonts | JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. |
+| Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. |
 | Misc | gnome-keyring unlocked at login, standard home folders, power tools (`sensors`, `powertop`) |
 
 Repositories added: COPR `sdegler/hyprland`, COPR `wojnilowicz/ungoogled-chromium`,

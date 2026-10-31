@@ -86,6 +86,11 @@ sudo dnf -y install --refresh "${PKGS[@]}"
 # RPM Fusion ffmpeg replaces Fedora's ffmpeg-free libraries
 sudo dnf -y install --allowerasing ffmpeg
 
+step "Brave default fonts for new profiles (pages without their own CSS fonts)"
+# Applied on Brave's first run; Standard/Sans = Noto Sans, Serif = Noto Serif, Fixed = JetBrains Mono
+echo '{"webkit":{"webprefs":{"fonts":{"standard":{"Zyyy":"Noto Sans"},"sansserif":{"Zyyy":"Noto Sans"},"serif":{"Zyyy":"Noto Serif"},"fixed":{"Zyyy":"JetBrains Mono"}}}}}' \
+  | sudo tee /opt/brave.com/brave/initial_preferences >/dev/null
+
 step "JetBrainsMono Nerd Font (bar icons; not packaged in Fedora)"
 NF_DIR="$HOME/.local/share/fonts/JetBrainsMonoNerd"
 if ! ls "$NF_DIR"/*.ttf >/dev/null 2>&1; then
