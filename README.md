@@ -75,6 +75,7 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 | Apps | Thunar (+ USB/phone/trash support, thumbnails, archives), Brave (default browser), Firefox + uBlock Origin (work apps), Loupe (images), mpv (video/audio), GNOME Calculator, git, vim, htop, btop |
 | Codecs | RPM Fusion ffmpeg (H.264, HEVC, VP9, AV1) |
 | Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. |
+| Security | SSH server disabled (re-enable: `sudo systemctl enable --now sshd`) |
 | Misc | gnome-keyring unlocked at login, standard home folders, power tools (`sensors`, `powertop`) |
 
 Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's official repo.
@@ -120,7 +121,8 @@ the mixer, right-click to mute and scroll to adjust. On brightness, scroll to ch
 screen, click to step the keyboard light and right-click to turn it off. The `W` module
 shows the current battery draw.
 
-**Idle**: the screen locks after 5 minutes and turns off after 6 minutes.
+**Idle**: the screen locks after 5 minutes and turns off after 6 minutes, except while a
+window is fullscreen (video, slides). Key repeat is macOS-fast: 225 ms delay, 40/s.
 
 ---
 
@@ -140,6 +142,19 @@ All configs live in `dotfiles/` and are **symlinked** into `~/.config`
 Hyprland 0.57 uses a **Lua** config (`hyprland.lua`). Most guides online still show the
 old `hyprland.conf` syntax, which no longer works. `hyprctl dispatch` also takes Lua now,
 for example `hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'`.
+
+## Updating Hyprland
+
+Hyprland and its libraries are **pinned** (`dnf versionlock`), so a routine `sudo dnf upgrade`
+can't pull in a release that breaks the config and leaves you at a broken login. To upgrade
+on purpose:
+
+```sh
+sudo dnf versionlock clear                   # unpin
+sudo dnf upgrade --refresh
+Hyprland --verify-config                     # must say "config ok" before you log out
+sudo dnf versionlock add $(rpm -qa --qf '%{name}\n' | grep -E '^(hypr|aquamarine$|xdg-desktop-portal-hyprland$)')
+```
 
 ## Useful commands
 

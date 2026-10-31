@@ -84,6 +84,10 @@ sudo dnf -y install --refresh "${PKGS[@]}"
 # RPM Fusion ffmpeg replaces Fedora's ffmpeg-free libraries
 sudo dnf -y install --allowerasing ffmpeg
 
+step "Pin Hyprland packages (COPR updates can break the Lua config; upgrade on purpose, see README)"
+mapfile -t HYPR_PKGS < <(rpm -qa --qf '%{name}\n' | grep -E '^(hypr|aquamarine$|xdg-desktop-portal-hyprland$)' | sort -u)
+sudo dnf versionlock add "${HYPR_PKGS[@]}"
+
 step "Brave default fonts for new profiles (pages without their own CSS fonts)"
 # Applied on Brave's first run; Standard/Sans = Noto Sans, Serif = Noto Serif, Fixed = JetBrains Mono
 echo '{"webkit":{"webprefs":{"fonts":{"standard":{"Zyyy":"Noto Sans"},"sansserif":{"Zyyy":"Noto Sans"},"serif":{"Zyyy":"Noto Serif"},"fixed":{"Zyyy":"JetBrains Mono"}}}}}' \
@@ -133,6 +137,9 @@ fi
 # =============================================================================
 # 4. Services, login manager
 # =============================================================================
+step "Security: no SSH server on a laptop (re-enable with: sudo systemctl enable --now sshd)"
+sudo systemctl disable --now sshd.service 2>/dev/null || true
+
 step "Bluetooth, ly on tty2, boot to graphical target"
 sudo systemctl enable bluetooth.service
 sudo systemctl disable getty@tty2.service || true

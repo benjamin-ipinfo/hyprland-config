@@ -78,6 +78,8 @@ hl.config({
 hl.config({
     input = {
         kb_layout    = "us",
+        repeat_delay = 225, -- ms before a held key repeats (macOS-fast; default 600)
+        repeat_rate  = 40,  -- repeats per second (default 25)
         follow_mouse = 1,
         touchpad = {
             natural_scroll       = true,
@@ -144,6 +146,12 @@ hl.bind("switch:on:"  .. lid, hl.dsp.dpms({ action = "off", monitor = "eDP-1" })
 hl.bind("switch:off:" .. lid, hl.dsp.dpms({ action = "on",  monitor = "eDP-1" }), { locked = true })
 
 ---- WINDOW RULES ----
+-- Never lock/blank the screen while a fullscreen window is shown (video, slides)
+hl.window_rule({
+    name  = "idle-inhibit-fullscreen",
+    match = { class = ".*" },
+    idle_inhibit = "fullscreen",
+})
 hl.window_rule({
     name  = "suppress-maximize-events",
     match = { class = ".*" },
