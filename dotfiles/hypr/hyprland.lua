@@ -112,6 +112,12 @@ hl.config({
         repeat_delay = 225, -- ms before a held key repeats (macOS-fast; default 600)
         repeat_rate  = 40,  -- repeats per second (default 25)
         follow_mouse = 1,
+        -- Pointer acceleration: off on PCs (mouse: cursor distance = hand distance),
+        -- libinput's adaptive default on the Mac touchpads.
+        accel_profile = is_apple and "adaptive" or "flat",
+        -- Speed, -1.0 .. 1.0 (0 = the mouse's native DPI, 1:1). With "flat" it is a plain
+        -- multiplier of about 1 + sensitivity: -0.3 is ~70% speed, -0.5 ~50%.
+        sensitivity  = 0,
         touchpad = {
             natural_scroll       = true,
             tap_to_click         = true,
