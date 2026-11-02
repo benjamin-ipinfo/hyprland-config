@@ -3,10 +3,10 @@
     "position": "top",
     "height": 30,
     "spacing": 6,
-    "modules-left": [],
-    "modules-center": [
+    "modules-left": [
         "hyprland/workspaces"
     ],
+    "modules-center": [],
     "modules-right": [
         "privacy",
         "network",

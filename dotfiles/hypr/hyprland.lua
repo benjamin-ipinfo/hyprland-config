@@ -46,7 +46,7 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" 
 local terminal = "kitty"
 local menu     = "fuzzel"
 local files    = "thunar"
-local mod      = "SUPER" -- Option key on the Macs (Cmd/Option swapped), Windows key on PCs
+local mod      = "SUPER" -- Option key on the Macs (Cmd/Option swapped), Alt key on PCs (Alt/Win swapped)
 
 ---- AUTOSTART ----
 hl.on("hyprland.start", function()
@@ -106,6 +106,9 @@ hl.config({
 hl.config({
     input = {
         kb_layout    = "us",
+        -- PCs: Alt <-> Super swapped, so the mod key sits next to the space bar like
+        -- Cmd on a Mac (the Macs swap Cmd/Option in the hid_apple driver instead)
+        kb_options   = is_apple and "" or "altwin:swap_alt_win",
         repeat_delay = 225, -- ms before a held key repeats (macOS-fast; default 600)
         repeat_rate  = 40,  -- repeats per second (default 25)
         follow_mouse = 1,

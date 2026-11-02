@@ -30,6 +30,30 @@ exec > >(tee -a "$REPO_DIR/install.log") 2>&1
 
 step() { printf '\n\033[1;34m==> [%s] %s\033[0m\n' "$(date '+%F %T')" "$*"; }
 warn() { printf '\033[1;33m!!  %s\033[0m\n' "$*"; }
+# Add kernel args to the current kernels and to future ones. Idempotent: an existing arg
+# with the same key is replaced (for video= the key includes the connector, e.g.
+# video=DP-1, so one per monitor). grubby updates the BLS entries; kernel-install reads
+# /etc/kernel/cmdline, grub2-mkconfig reads GRUB_CMDLINE_LINUX in /etc/default/grub.
+kernel_args() {
+  local a key re o f
+  for a in "$@"; do
+    case "$a" in video=*:*) key=${a%%:*} ;; *) key=${a%%=*} ;; esac
+    re="${key//./\\.}[=:][^ \"]*"
+    for o in $(sudo grubby --info=ALL | grep -oE "[ \"]$re" | tr -d ' "' | sort -u); do
+      sudo grubby --update-kernel=ALL --remove-args="$o"
+    done
+    sudo grubby --update-kernel=ALL --args="$a"
+    for f in /etc/kernel/cmdline /etc/default/grub; do
+      [ -f "$f" ] || continue
+      sudo sed -i -E "s#[ ]$re##g" "$f"
+      if [ "$f" = /etc/kernel/cmdline ]; then
+        sudo sed -i "1 s#[ ]*\$# $a#" "$f"
+      else
+        sudo sed -i -E "s#^GRUB_CMDLINE_LINUX=\"(.*)\"#GRUB_CMDLINE_LINUX=\"\\1 $a\"#" "$f"
+      fi
+    done
+  done
+}
 [ "$EUID" -ne 0 ] || { echo "Run as your normal user, not root."; exit 1; }
 FEDORA=$(rpm -E %fedora)
 
@@ -179,17 +203,7 @@ if [ "$PLATFORM" = asahi ]; then
   # sets 3024x1964@120 (14") / 3456x2234@120 (16") at scale 2 and waybar fills the notch strip.
   if [[ "$MODEL" == *"14-inch"* || "$MODEL" == *"16-inch"* ]]; then
     step "MacBook Pro 14/16\": kernel arg appledrm.show_notch=1 (takes effect after reboot)"
-    NOTCH=appledrm.show_notch=1
-    # current kernels (BLS entries); grubby also updates /etc/kernel/cmdline
-    sudo grubby --update-kernel=ALL --args="$NOTCH"
-    # future kernels: kernel-install reads /etc/kernel/cmdline, grub2-mkconfig reads /etc/default/grub
-    if [ -f /etc/kernel/cmdline ] && ! grep -q "$NOTCH" /etc/kernel/cmdline; then
-      sudo sed -i "1 s/\$/ $NOTCH/" /etc/kernel/cmdline
-    fi
-    if [ -f /etc/default/grub ] && ! grep -q "$NOTCH" /etc/default/grub; then
-      sudo sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\\(.*\\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\\1 $NOTCH\"/" /etc/default/grub
-    fi
-    sudo grubby --info=ALL | grep -E '^(kernel|args)='
+    kernel_args appledrm.show_notch=1
   fi
 fi
 
@@ -209,8 +223,15 @@ sudo systemctl disable getty@tty2.service || true
 sudo systemctl enable ly@tty2.service
 sudo systemctl set-default graphical.target
 
-step "ly: no animation, plain VT colours, remember last user (SELinux label for save file)"
-sudo sed -i 's/^animation = .*/animation = none/; s/^full_color = .*/full_color = false/; s/^save = .*/save = true/' \
+step "ly + text console: black and white only, remember last user (SELinux label for save file)"
+# Console palette: black, mid grey (bright black), everything else white. Applies to the
+# text console and ly (boot messages, errors and the login box), so nothing is blue/red.
+GREY=0,255,255,255,255,255,255,255,128,255,255,255,255,255,255,255
+kernel_args "vt.default_red=$GREY" "vt.default_grn=$GREY" "vt.default_blu=$GREY"
+# ly in eight-colour mode: text, border and errors (bold) all white on the default black.
+# (True-colour values like 0x00FFFFFF are not valid in eight-colour mode.)
+sudo sed -i -E 's/^animation = .*/animation = none/; s/^full_color = .*/full_color = false/; s/^save = .*/save = true/;
+  s/^(fg|border_fg) = .*/\1 = 0x00000008/; s/^error_fg = .*/error_fg = 0x01000008/; s/^bg = .*/bg = 0x00000000/' \
   /etc/ly/config.ini
 # ly runs as xdm_t and may not create files in /etc; pre-create a writable save file
 sudo semanage fcontext -a -t xdm_var_lib_t '/etc/ly/save\.txt' 2>/dev/null \
@@ -219,6 +240,19 @@ sudo touch /etc/ly/save.txt
 sudo restorecon /etc/ly/save.txt
 
 if [ "$PLATFORM" = pc ]; then
+  # Some monitors prefer a smaller mode than their panel (the ASUS XG27JCG 5K prefers
+  # 3840x2160). The text console and ly then run upscaled and off-centre on a framebuffer
+  # sized for the largest screen. Force the native mode at boot (fake 4K input modes of
+  # 1440p monitors excluded, as in hypr/scripts/monitors.py).
+  for c in /sys/class/drm/card*-*; do
+    [ "$(cat "$c/status" 2>/dev/null)" = connected ] || continue
+    pref=$(head -1 "$c/modes"); big=$(sort -t x -k1,1n -k2,2n -u "$c/modes" | tail -1)
+    [ -n "$big" ] && [ "$big" != "$pref" ] || continue
+    case "$big" in 3840x2160|4096x2160) continue ;; esac
+    step "Console: ${c#*card?-} at its native ${big} at boot (prefers ${pref})"
+    kernel_args "video=${c#*card?-}:${big}@60"
+  done
+
   step "Firmware updates: fwupd (check with: fwupdmgr get-updates)"
   sudo systemctl enable --now fwupd-refresh.timer 2>/dev/null || true
 fi

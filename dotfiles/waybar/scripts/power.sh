@@ -5,8 +5,8 @@
 # System battery: type Battery, but not a wireless mouse/keyboard (those have scope=Device)
 #
 # power.sh --live  (config-wired.jsonc, PCs without battery): APU package power from the
-# amdgpu sensor (PPT = CPU + GPU + SoC), one JSON line per second, never exits. Wall
-# power is higher (RAM, SSD, NIC, PSU losses). RAPL would be similar but is root-only.
+# amdgpu sensor (PPT = CPU + GPU + SoC), one JSON line every 5 s (average of 1 s
+# samples), never exits. Wall power is higher (RAM, SSD, NIC, PSU losses). RAPL would be similar but is root-only.
 if [ "${1:-}" = --live ]; then
   f=""
   for h in /sys/class/hwmon/hwmon*; do
@@ -14,11 +14,13 @@ if [ "${1:-}" = --live ]; then
     for x in power1_input power1_average; do [ -r "$h/$x" ] && { f=$h/$x; break 2; }; done
   done
   [ -n "$f" ] || { echo '{"text":""}'; exec sleep infinity; }   # no sensor: hidden
+  # Sample every second, show the 5-second average (instant readings jump around too much)
   while :; do
-    d=$(( $(<"$f") / 100000 ))   # µW -> tenths of a watt
-    printf '{"text":"󱐋 %d.%dW","tooltip":"APU package power (CPU + GPU + SoC): %d.%d W\\nWall power is higher (RAM, SSD, network, PSU)"}\n' \
+    sum=0
+    for _ in 1 2 3 4 5; do sum=$(( sum + $(<"$f") )); sleep 1; done
+    d=$(( sum / 500000 ))   # 5 samples in µW -> average in tenths of a watt
+    printf '{"text":"󱐋 %d.%dW","tooltip":"APU package power (CPU + GPU + SoC), 5 s average: %d.%d W\\nWall power is higher (RAM, SSD, network, PSU)"}\n' \
       $((d / 10)) $((d % 10)) $((d / 10)) $((d % 10))
-    sleep 1
   done
 fi
 
