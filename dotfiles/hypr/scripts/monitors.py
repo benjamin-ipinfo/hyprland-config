@@ -118,6 +118,8 @@ def main():
         print("No monitors found; not writing anything.", file=sys.stderr)
         sys.exit(1)
     if "--apply" in sys.argv or os.path.basename(sys.argv[0]) == "monitors-setup":
+        if os.path.islink(OUT):   # e.g. -> monitors-workhorse.lua (tracked): don't overwrite it
+            os.unlink(OUT)
         with open(OUT, "w") as f:
             f.write(text)
         subprocess.run(["hyprctl", "reload"], check=False, capture_output=True)
