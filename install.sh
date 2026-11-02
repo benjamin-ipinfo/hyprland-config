@@ -361,6 +361,10 @@ gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita'
 gsettings set org.gnome.desktop.interface font-hinting 'none'
 gsettings set org.gnome.desktop.interface font-antialiasing 'rgba'
 gsettings set org.gnome.desktop.interface font-rgba-order 'rgb'
+if [ "$PLATFORM" = pc ]; then
+  # PCs: vertical subpixels for a portrait (rotated clockwise) monitor, as in lowdpi-hinting.conf
+  gsettings set org.gnome.desktop.interface font-rgba-order 'vrgb'
+fi
 
 step "Keyring socket, standard folders"
 systemctl --user enable gnome-keyring-daemon.socket
