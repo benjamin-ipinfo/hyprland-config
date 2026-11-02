@@ -2,10 +2,10 @@
 """Generate ~/.config/hypr/monitors.lua for PCs (not used on the Apple-silicon Macs).
 
 For every connected monitor:
-  mode     the panel's native resolution (the size it's running at: Hyprland's "preferred"
-           mode on first login), at the highest refresh rate offered for that resolution.
-           Larger modes are ignored on purpose: many 1440p monitors advertise a fake
-           3840x2160@30 input mode.
+  mode     the panel's native resolution, at the highest refresh rate offered for it:
+           the largest mode offered at >= 59 Hz, else Hyprland's "preferred" mode.
+           Fake 4K input modes (3840x2160 / 4096x2160 on 1440p monitors) never win over
+           the preferred mode.
   scale    from pixel density (physical size from EDID), so text is the same size everywhere:
            >= 190 ppi -> 2 (e.g. 27" 5K), >= 150 ppi -> 1.5 (e.g. 27" 4K), else 1 (e.g. 27" 1440p)
   vrr      2 (only while a fullscreen app runs) on monitors that can do >= 100 Hz
@@ -50,14 +50,28 @@ def load_monitors():
         time.sleep(1)
 
 
+# Typical fake "input" modes of 1440p/1080p monitors (accepted, then downscaled).
+FAKE_INPUT = {(3840, 2160), (4096, 2160)}
+
+
 def best_mode(mon):
-    w, h = mon["width"], mon["height"]          # native size (currently active mode)
-    rates = []
+    rates = {}                                   # (w, h) -> highest refresh offered
     for m in mon.get("availableModes", []):
         r = re.match(r"(\d+)x(\d+)@([\d.]+)Hz", m)
-        if r and (int(r[1]), int(r[2])) == (w, h):
-            rates.append(float(r[3]))
-    rate = max(rates) if rates else float(mon.get("refreshRate", 60))
+        if r:
+            size = (int(r[1]), int(r[2]))
+            rates[size] = max(rates.get(size, 0), float(r[3]))
+    # Start from the preferred mode (what Hyprland runs on first login). Some monitors
+    # prefer a smaller mode than their panel, e.g. the ASUS XG27JCG 5K prefers
+    # 3840x2160: take the largest mode that runs at >= 59 Hz, unless it's a fake 4K
+    # input mode (those are often 30 Hz only, but some accept 60).
+    w, h = mon["width"], mon["height"]
+    full = [s for s, r in rates.items() if r >= 59]
+    if full:
+        big = max(full, key=lambda s: s[0] * s[1])
+        if big[0] * big[1] > w * h and big not in FAKE_INPUT:
+            w, h = big
+    rate = rates.get((w, h), float(mon.get("refreshRate", 60)))
     return w, h, rate
 
 

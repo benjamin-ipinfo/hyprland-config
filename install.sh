@@ -199,8 +199,12 @@ fi
 step "Security: no SSH server (re-enable with: sudo systemctl enable --now sshd)"
 sudo systemctl disable --now sshd.service 2>/dev/null || true
 
-step "Bluetooth, ly on tty2, boot to graphical target"
-sudo systemctl enable bluetooth.service
+step "Bluetooth (if there is an adapter), ly on tty2, boot to graphical target"
+if ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then
+  sudo systemctl enable bluetooth.service
+else
+  echo "No Bluetooth adapter: bluetooth.service left disabled."
+fi
 sudo systemctl disable getty@tty2.service || true
 sudo systemctl enable ly@tty2.service
 sudo systemctl set-default graphical.target
@@ -238,7 +242,24 @@ EOF
   # undo: sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 fi
-# PCs keep Fedora's defaults: sleep works (lid = suspend on laptops, power button = power off).
+# PC laptops keep Fedora's defaults: sleep works (lid = suspend, power button = power off).
+if [ "$PLATFORM" = pc ] && [ "$FORM" = desktop ]; then
+  # Always-on workhorse (long-running jobs, `claude rc`): nothing may suspend it, not even
+  # a keyboard sleep key. Displays are switched off by hand / hypridle (DPMS) instead.
+  step "Desktop: never sleep; CPU energy preference balance_power (lower idle power, full boost under load)"
+  # undo: sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+  sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+  # amd-pstate-epp / intel_pstate (active mode): bias the hardware governor towards
+  # efficiency. Cores still boost to max under sustained load. Revert by deleting the file
+  # (Fedora's default is balance_performance); try live with:
+  #   echo balance_performance | sudo tee /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference
+  if [ -e /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference ]; then
+    echo 'w /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference - - - - balance_power' \
+      | sudo tee /etc/tmpfiles.d/10-cpu-epp.conf
+    sudo systemd-tmpfiles --create /etc/tmpfiles.d/10-cpu-epp.conf || true
+    echo "EPP now: $(cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference)"
+  fi
+fi
 
 if [ -n "$BAT" ]; then
   LIMIT_FILE="$BAT/charge_control_end_threshold"
@@ -278,6 +299,11 @@ chmod +x "$DOT"/waybar/scripts/*.sh "$DOT"/hypr/scripts/*.sh "$DOT"/hypr/scripts
 ln -sfn "$HOME/.config/hypr/scripts/wallpaper.sh" "$HOME/.local/bin/wallpaper"
 # PCs: monitors.lua is generated on first Hyprland login; `monitors-setup` regenerates it
 ln -sfn "$HOME/.config/hypr/scripts/monitors.py" "$HOME/.local/bin/monitors-setup"
+if [ "$PLATFORM" = pc ]; then
+  # Light hinting for scale-1 (~100 ppi) monitors; scale-2 screens still render like the
+  # Macs because Chromium/GTK4 ignore hinting there. Not in git (fontconfig/local.conf).
+  ln -sfn lowdpi-hinting.conf "$DOT/fontconfig/local.conf"
+fi
 fc-cache -f
 
 step "Default wallpaper (only if none chosen yet; change with: wallpaper /path/img)"

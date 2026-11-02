@@ -13,7 +13,7 @@ window#waybar {
     color: #d4d4d4;
 }
 
-#network, #bluetooth, #pulseaudio, #custom-brightness, #battery, #custom-power, #clock, #workspaces {
+#network, #bluetooth, #pulseaudio, #custom-brightness, #battery, #custom-power, #custom-power-live, #clock, #workspaces {
     padding: 0 10px;
     margin: 4px 0;
     border-radius: 6px;

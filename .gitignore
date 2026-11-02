@@ -1,3 +1,4 @@
 *.log
 dotfiles/hypr/monitors.lua
 __pycache__/
+dotfiles/fontconfig/local.conf

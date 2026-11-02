@@ -50,7 +50,18 @@ local mod      = "SUPER" -- Option key on the Macs (Cmd/Option swapped), Windows
 
 ---- AUTOSTART ----
 hl.on("hyprland.start", function()
-    hl.exec_cmd(panel.notch and "waybar -c ~/.config/waybar/config-notch.jsonc" or "waybar")
+    -- bar: notch layout on the 14"/16" Pros; PCs without Wi-Fi hardware get the wired
+    -- layout (ethernet + live traffic + live APU watts, no Wi-Fi/Bluetooth)
+    local p = io.popen("ls /sys/class/ieee80211 2>/dev/null")
+    local has_wifi = p and p:read("*a") ~= "" or false
+    if p then p:close() end
+    if panel.notch then
+        hl.exec_cmd("waybar -c ~/.config/waybar/config-notch.jsonc")
+    elseif not is_apple and not has_wifi then
+        hl.exec_cmd("waybar -c ~/.config/waybar/config-wired.jsonc")
+    else
+        hl.exec_cmd("waybar")
+    end
     hl.exec_cmd("mako")
     hl.exec_cmd("hyprpaper")
     hl.exec_cmd("hypridle")

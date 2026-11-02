@@ -3,6 +3,25 @@
 # power_now is in microwatts (macsmc-battery: negative = discharging). Some PC batteries
 # only expose current_now/voltage_now. No battery (desktop): print nothing -> module hidden.
 # System battery: type Battery, but not a wireless mouse/keyboard (those have scope=Device)
+#
+# power.sh --live  (config-wired.jsonc, PCs without battery): APU package power from the
+# amdgpu sensor (PPT = CPU + GPU + SoC), one JSON line per second, never exits. Wall
+# power is higher (RAM, SSD, NIC, PSU losses). RAPL would be similar but is root-only.
+if [ "${1:-}" = --live ]; then
+  f=""
+  for h in /sys/class/hwmon/hwmon*; do
+    [ "$(cat "$h/name" 2>/dev/null)" = amdgpu ] || continue
+    for x in power1_input power1_average; do [ -r "$h/$x" ] && { f=$h/$x; break 2; }; done
+  done
+  [ -n "$f" ] || { echo '{"text":""}'; exec sleep infinity; }   # no sensor: hidden
+  while :; do
+    d=$(( $(<"$f") / 100000 ))   # µW -> tenths of a watt
+    printf '{"text":"󱐋 %d.%dW","tooltip":"APU package power (CPU + GPU + SoC): %d.%d W\\nWall power is higher (RAM, SSD, network, PSU)"}\n' \
+      $((d / 10)) $((d % 10)) $((d / 10)) $((d % 10))
+    sleep 1
+  done
+fi
+
 BAT=""
 for p in /sys/class/power_supply/*; do
   [ "$(cat "$p/type" 2>/dev/null)" = Battery ] && [ "$(cat "$p/scope" 2>/dev/null)" != Device ] && { BAT=$p; break; }

@@ -86,12 +86,13 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 | Login | `ly` on tty2, no animation, remembers the last user and session |
 | Keyboard (Mac) | `hid_apple`: **Cmd and Option swapped**, **Fn and left Ctrl swapped**, F-keys first. Built into the initramfs, so it applies from early boot. |
 | Power (Mac) | Lid/power key locks, sleep disabled |
-| Power (PC) | Fedora defaults: sleep works (a laptop suspends when the lid closes) |
+| Power (PC laptop) | Fedora defaults: sleep works (a laptop suspends when the lid closes) |
+| Power (PC desktop) | Never sleeps (sleep targets masked: an always-on workhorse). CPU energy preference `balance_power` (`/etc/tmpfiles.d/10-cpu-epp.conf`): lower idle power, full boost under load |
 | Battery (any laptop) | 90% charge limit if the firmware supports it (80% if it only allows that), clean shutdown at 2%, low-battery notifications at 15% and 5%. Skipped on desktops. |
 | PC extras | Monitors auto-configured on first login (see below), AMD hardware video decoding (`mesa-va-drivers-freeworld`), firmware updates via `fwupd`, Print-key screenshots |
 | Apps | Thunar (+ USB/phone/trash support, thumbnails, archives), Brave (default browser), Firefox + uBlock Origin (work apps), Loupe (images), mpv (video/audio), GNOME Calculator, git, vim, htop, btop |
 | Codecs | RPM Fusion ffmpeg (H.264, HEVC, VP9, AV1) |
-| Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. |
+| Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. PCs add light hinting, which only shows on scale-1 monitors: scale-2 screens look like the Macs. |
 | Security | SSH server disabled (re-enable: `sudo systemctl enable --now sshd`) |
 | Misc | gnome-keyring unlocked at login, standard home folders, power tools (`sensors`, `powertop`) |
 
@@ -111,14 +112,18 @@ Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's offici
 On the first Hyprland login, `hypr/scripts/monitors.py` reads the connected monitors and
 writes `~/.config/hypr/monitors.lua`. That file is not tracked in git. For each monitor
 it picks:
-- the **highest resolution**, then the **highest refresh rate** offered at that resolution
+- the **native resolution**: the largest mode offered at 59 Hz or more, even when the
+  monitor prefers a smaller one (the ASUS XG27JCG 5K prefers 3840×2160). Fake 4K input
+  modes on 1440p monitors are ignored
+- the **highest refresh rate** offered at that resolution
 - the **scale from pixel density**: 2 at 190+ ppi (27" 5K), 1.5 at 150+ ppi (27" 4K),
   otherwise 1 (27" 1440p), so text is the same size on every screen
 - **VRR** while a fullscreen app runs, on monitors that can do 100 Hz or more
 - a **position** with the highest-resolution monitor on the left and the others to its right
 
-For example, a 27" 5K plus a 27" 1440p gives `5120x2880@120, scale 2` plus
-`2560x1440@60, scale 1`, both 2560 px wide logically. Edit `monitors.lua` to change the
+For example, an ASUS XG27JCG (27" 5K) plus a Dell U2717D (27" 1440p) gives
+`5120x2880@120, scale 2` (like a Retina Mac) plus `2560x1440@60, scale 1`, both 2560 px
+wide logically. The 5K can do 165 Hz, but only modes the GPU link can carry are offered. Edit `monitors.lua` to change the
 order or rate, or run `monitors-setup` to regenerate it, for instance after changing
 monitors. Check the result with `hyprctl monitors`.
 
@@ -152,6 +157,11 @@ is the Super key** (shown as *Super* below). The physical left **Ctrl** key acts
 | Super+Shift+E | Log out of Hyprland |
 | 3-finger swipe | Switch workspace |
 
+**Bar on PCs without Wi-Fi** (`config-wired.jsonc`): the ethernet link (right-click for
+settings), live download/upload in bits per second (kb/s, Mb/s, Gb/s) in place of
+Bluetooth, and live APU power in watts (CPU + GPU + SoC, updated every second; wall power
+is higher).
+
 **Bar** (top right): click Wi-Fi to open a picker that scans and connects to networks;
 right-click it for advanced settings. Click Bluetooth for blueman. On volume, click for
 the mixer, right-click to mute and scroll to adjust. On brightness, scroll to change the
@@ -172,7 +182,8 @@ All configs live in `dotfiles/` and are **symlinked** into `~/.config`
   keeps it after a reboot.
 - **Screen scale or mode**: the `MONITORS` section of `dotfiles/hypr/hyprland.lua`.
   Apply changes with `hyprctl reload`.
-- **Bar**: `dotfiles/waybar/config.jsonc` and `style.css`. On the notched Pros,
+- **Bar**: `dotfiles/waybar/config.jsonc` and `style.css`. PCs without Wi-Fi use
+  `config-wired.jsonc` on top of it. On the notched Pros,
   `config-notch.jsonc` overrides the height and layout.
 - **Check the config**: `Hyprland --verify-config`.
 
