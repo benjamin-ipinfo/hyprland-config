@@ -169,7 +169,7 @@ step "Pin Hyprland packages (COPR updates can break the Lua config; upgrade on p
 mapfile -t HYPR_PKGS < <(rpm -qa --qf '%{name}\n' | grep -E '^(hypr|aquamarine$|xdg-desktop-portal-hyprland$)' | sort -u)
 sudo dnf versionlock add "${HYPR_PKGS[@]}"
 
-step "Firefox: address bar never web-searches, suggests from bookmarks only (policy)"
+step "Firefox: address bar never web-searches, suggests from bookmarks only, never history (policy)"
 # Firefox always needs a default engine; with keyword.enabled off it is never used from
 # the address bar. Change suggestions in dotfiles/firefox/policies.json, check about:policies.
 sudo install -Dm644 "$DOT/firefox/policies.json" /etc/firefox/policies/policies.json
