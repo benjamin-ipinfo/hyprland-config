@@ -334,6 +334,10 @@ for app in hypr waybar kitty fuzzel mako fontconfig; do
   if [ -e "$target" ] && [ ! -L "$target" ]; then mv "$target" "$target.bak.$(date +%s)"; fi
   ln -sfn "$DOT/$app" "$target"
 done
+# graphical-session.target for the portals (screen sharing), started by hyprland.lua
+mkdir -p "$HOME/.config/systemd/user"
+ln -sfn "$DOT/systemd/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
+systemctl --user daemon-reload
 chmod +x "$DOT"/waybar/scripts/*.sh "$DOT"/hypr/scripts/*.sh "$DOT"/hypr/scripts/*.py
 ln -sfn "$HOME/.config/hypr/scripts/wallpaper.sh" "$HOME/.local/bin/wallpaper"
 # PCs: monitors.lua is generated on first Hyprland login; `monitors-setup` regenerates it

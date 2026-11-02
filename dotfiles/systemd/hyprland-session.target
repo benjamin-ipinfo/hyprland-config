@@ -1,0 +1,8 @@
+# Started by hyprland.lua at launch, stopped at exit. Hyprland runs without a session
+# manager (uwsm), so nothing else activates graphical-session.target, and units that
+# require it (xdg-desktop-portal: screen sharing, file pickers) refuse to start.
+[Unit]
+Description=Hyprland session
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

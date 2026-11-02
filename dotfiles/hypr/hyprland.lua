@@ -50,6 +50,9 @@ local mod      = "SUPER" -- Option key on the Macs (Cmd/Option swapped), Alt key
 
 ---- AUTOSTART ----
 hl.on("hyprland.start", function()
+    -- graphical-session.target for the portals (screen sharing, file pickers);
+    -- Hyprland has already exported WAYLAND_DISPLAY etc. to the systemd user manager
+    hl.exec_cmd("systemctl --user start hyprland-session.target")
     -- bar: notch layout on the 14"/16" Pros; PCs without Wi-Fi hardware get the wired
     -- layout (ethernet + live traffic + live APU watts, no Wi-Fi/Bluetooth)
     local p = io.popen("ls /sys/class/ieee80211 2>/dev/null")
@@ -70,6 +73,10 @@ hl.on("hyprland.start", function()
     if not is_apple and read(HOME .. "/.config/hypr/monitors.lua") == "" then
         hl.exec_cmd("~/.config/hypr/scripts/monitors.py --apply") -- first login on a PC
     end
+end)
+
+hl.on("hyprland.shutdown", function()
+    os.execute("systemctl --user stop hyprland-session.target")
 end)
 
 ---- ENVIRONMENT ----
