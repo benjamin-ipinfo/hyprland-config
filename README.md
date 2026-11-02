@@ -103,7 +103,7 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 | Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. The workhorse adds light hinting and vertical subpixel order (`vrgb`) for the portrait Dell; the 5K at scale 2 looks the same either way. |
 | Security | SSH server disabled (re-enable: `sudo systemctl enable --now sshd`); on the workhorse the firewall also closes its port |
 | Screen sharing | `hyprland-session.target` starts `graphical-session.target`, which the desktop portal needs (Meet/Zoom screen sharing, file pickers) |
-| Console and login | Black and white only (console palette + ly colours). On the workhorse the 5K starts in its native mode, so ly is centred and sharp |
+| Console and login | Black and white only (console palette + ly colours). On the workhorse the console boots at 2560×1440 on both screens, so ly fills the 5K, centred |
 | Misc | gnome-keyring unlocked at login, standard home folders, power tools (`sensors`, `powertop`) |
 
 Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's official repo.
@@ -258,6 +258,11 @@ sudo rm /etc/systemd/logind.conf.d/10-lid-lock.conf    # Macs only
 
 - **Install failed partway**: read `install.log`, fix the cause, then run `./install.sh`
   again. Every step is safe to repeat.
+- **No 3.5mm jack on the workhorse** (`dmesg` says `no codecs found`): the BIOS has HD
+  Audio turned off. Enable it; no kernel option can reach the codec while it's off.
+- **ly in the top-left of the 5K**: the console is shared by all monitors and sized to the
+  smallest; `install-amd64.sh` boots the 5K at that size (`video=DP-1:2560x1440M@60`).
+  Re-run it after changing monitors.
 - **Screen sharing doesn't work**: `systemctl --user is-active graphical-session.target`
   must say `active` (started by `hyprland-session.target` at login).
 - **Hyprland problems**: run `hyprctl configerrors`. Logs are in
