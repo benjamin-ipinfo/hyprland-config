@@ -2,14 +2,17 @@
 
 My personal, fast and quiet Hyprland desktop for Apple silicon MacBooks running
 **Fedora Asahi Remix**, and for my **amd64 workhorse** desktop running Fedora. A script per
-machine takes a fresh *minimal* install to the full desktop:
+machine takes a fresh *minimal* install to the full desktop.
 
-| Script | Machine |
+| Folder | What's in it |
 |---|---|
-| `install-asahi.sh` | Apple silicon MacBooks |
-| `install-amd64.sh` | The amd64 workhorse: always-on AMD desktop (Ryzen 7 7840HS mini PC, ASUS 5K + portrait Dell) |
-| `lib/common.sh` | Steps both share (sourced by the two scripts) |
-| `install.sh` | Detects the machine and runs the right script |
+| `macbook/` | Apple silicon MacBooks: `install.sh`, `hypr/machine.lua` (panel, touchpad, brightness keys, lid, bar), battery notifications |
+| `amd64/` | The amd64 workhorse, an always-on AMD desktop (Ryzen 7 7840HS mini PC, ASUS 5K + portrait Dell): `install.sh`, `hypr/machine.lua` (monitors, mouse, bar), the monitor layout and `monitors-setup`, the wired bar, audio rules, Webcam launcher, low-dpi font tuning |
+| `common/` | Everything both share: `lib.sh` (install steps, sourced by both scripts) and the dotfiles (`hypr/hyprland.lua`, waybar, kitty, fuzzel, mako, fontconfig, Firefox policy, systemd target) |
+| `install.sh` | Detects the machine and runs `macbook/install.sh` or `amd64/install.sh` |
+
+`common/` is linked into `~/.config` (`hypr`, `waybar`, …) and the machine's folder as
+`~/.config/hypr-platform`; `common/hypr/hyprland.lua` loads `hypr/machine.lua` from it.
 
 - **No animations anywhere**: Hyprland, the lock screen, the bar, GTK apps and the terminal.
 - **Neutral grey theme** for the desktop, with light-mode apps and websites.
@@ -48,7 +51,7 @@ Download **Fedora Everything** (the netinstall ISO) from fedoraproject.org, boot
 *Software Selection* choose **Minimal Install**. Create your user as an **administrator**.
 Wired network works out of the box. For Wi-Fi, use `nmtui` after the first boot.
 
-`./install.sh` detects the PC and runs `install-amd64.sh`.
+`./install.sh` detects the PC and runs `amd64/install.sh`.
 </details>
 
 ### 2. Get online and install git
@@ -90,14 +93,14 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 |---|---|
 | Desktop | Hyprland (Lua config), waybar, hyprlock, hypridle, hyprpaper, mako notifications, fuzzel launcher, kitty terminal |
 | Login | `ly` on tty2, no animation, remembers the last user and session |
-| Keyboard (PC) | **Alt and Super swapped** (`altwin:swap_alt_win`, in `hyprland.lua`): the mod key sits next to the space bar, like Cmd on the Macs |
+| Keyboard (PC) | **Alt and Super swapped** (`altwin:swap_alt_win`, in `amd64/hypr/machine.lua`): the mod key sits next to the space bar, like Cmd on the Macs |
 | Keyboard (Mac) | `hid_apple`: **Cmd and Option swapped**, **Fn and left Ctrl swapped**, F-keys first. Built into the initramfs, so it applies from early boot. |
 | Power (Mac) | Lid/power key locks, sleep disabled |
 | Power (workhorse) | Never sleeps (sleep targets masked: an always-on workhorse). CPU energy preference `balance_power` (`/etc/tmpfiles.d/10-cpu-epp.conf`): lower idle power, full boost under load |
 | Battery (Mac) | 90% charge limit if the firmware supports it (80% if it only allows that), clean shutdown at 2%, low-battery notifications at 15% and 5% |
 | Workhorse | Hostname `workhorse`, monitor layout (see below), AMD hardware video decoding (`mesa-va-drivers-freeworld`), firmware updates via `fwupd`, USB4 device authorization (`bolt`, `boltctl`), Print-key screenshots, mouse without acceleration |
 | Data safety (workhorse) | Btrfs snapshots with snapper: `/` before and after every `dnf` transaction (last 10 kept), `/home` hourly (48 hourly + 7 daily kept, browse `/home/.snapshots`). Monthly btrfs scrub. Security updates installed daily (`dnf5-automatic`), everything else manual. **Not a backup**: nothing leaves the disk yet. |
-| Audio (workhorse) | The USB mic's headphone output and the webcam's microphone are hidden (`dotfiles/wireplumber`): sound goes to real outputs, the dedicated mic is the only input. "Webcam" in the launcher shows the raw camera image (mpv). |
+| Audio (workhorse) | The USB mic's headphone output and the webcam's microphone are hidden (`amd64/wireplumber`): sound goes to real outputs, the dedicated mic is the only input. "Webcam" in the launcher shows the raw camera image (mpv). |
 | Apps | Thunar (+ USB/phone/trash support, thumbnails, archives), Brave (default browser), Firefox + uBlock Origin (work apps), Loupe (images), mpv (video/audio), GNOME Calculator, git, vim, htop, btop |
 | Codecs | RPM Fusion ffmpeg (H.264, HEVC, VP9, AV1) |
 | Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. The workhorse adds light hinting and vertical subpixel order (`vrgb`) for the portrait Dell; the 5K at scale 2 looks the same either way. |
@@ -113,14 +116,14 @@ Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's offici
 | Machine | Screen | Notes |
 |---|---|---|
 | MacBook Air M1 / Pro 13" | 2560×1600, scale 1.667 (looks like 1536×960) | |
-| MacBook Pro 14" | 3024×1964 @ 120 Hz, scale 2 (looks like 1512×982) | Adds the kernel argument `appledrm.show_notch=1`; the bar fills the strip beside the notch |
+| MacBook Pro 14" | 3024×1964 @ 120 Hz, scale 2 (looks like 1512×982) | Adds the kernel argument `appledrm.show_notch=1`; the bar fills the strip beside the notch (same bar config, height raised to the notch's at login) |
 | MacBook Pro 16" | 3456×2234 @ 120 Hz, scale 2 (looks like 1728×1117) | Same notch handling |
 | Workhorse | ASUS 5K + portrait Dell | Tracked layout (see below) |
 
 ### Workhorse monitors
 
-`dotfiles/hypr/monitors-workhorse.lua` (tracked; `install-amd64.sh` links
-`monitors.lua` to it). Monitors are matched by name, not port, so moving a cable changes
+`amd64/hypr/monitors-workhorse.lua` (tracked; `amd64/install.sh` links
+`amd64/hypr/monitors.lua` to it). Monitors are matched by name, not port, so moving a cable changes
 nothing:
 - **ASUS XG27JCG**: 5120×2880 @ 120 Hz, scale 2, primary, workspaces 1–8 and 10.
   The monitor offers 5K @ 165 Hz, but this APU's display engine can't drive it, and the
@@ -130,8 +133,8 @@ nothing:
   using the full width. 60 Hz: its scaler rejects 68 Hz and up on HDMI and DP (65 Hz
   works over DP, not worth a USB4 port).
 
-**Other monitors**: `monitors-setup` (`hypr/scripts/monitors.py`) writes a fresh
-`monitors.lua` from the connected monitors (the tracked layout stays). For each monitor it picks:
+**Other monitors**: `monitors-setup` (`amd64/hypr/scripts/monitors.py`) writes a fresh
+`amd64/hypr/monitors.lua` from the connected monitors (the tracked layout stays). For each monitor it picks:
 - the **native resolution**: the largest mode offered at 59 Hz or more, even when the
   monitor prefers a smaller one (the ASUS XG27JCG 5K prefers 3840×2160). Fake 4K input
   modes on 1440p monitors are ignored
@@ -174,7 +177,7 @@ is the Super key** (shown as *Super* below). The physical left **Ctrl** key acts
 | Super+Shift+E | Log out of Hyprland |
 | 3-finger swipe | Switch workspace |
 
-**Bar on PCs without Wi-Fi** (`config-wired.jsonc`): the ethernet link (right-click for
+**Bar on PCs without Wi-Fi** (`amd64/waybar/config-wired.jsonc`): the ethernet link (right-click for
 settings), live download/upload in bits per second (kb/s, Mb/s, Gb/s) in place of
 Bluetooth, and live APU power in watts (CPU + GPU + SoC, 5-second average; wall power is higher).
 
@@ -191,21 +194,24 @@ window is fullscreen (video, slides). Key repeat is macOS-fast: 225 ms delay, 40
 
 ## Customizing
 
-All configs live in `dotfiles/` and are **symlinked** into `~/.config`
-(`hypr`, `waybar`, `kitty`, `fuzzel`, `mako`, `fontconfig`; on the workhorse also
-`wireplumber` and the Webcam launcher), so edit them in the repo.
+All configs are **symlinked** from the repo, so edit them there: `common/` into
+`~/.config` (`hypr`, `waybar`, `kitty`, `fuzzel`, `mako`, `fontconfig`), the machine's
+folder as `~/.config/hypr-platform`, and on the workhorse also `amd64/wireplumber` and the
+Webcam launcher. Settings for every machine go in `common/`; settings for one kind of
+machine in `macbook/` or `amd64/` (`hypr/machine.lua` for Hyprland).
 
 - **Wallpaper**: `wallpaper /path/to/image` (png/jpg/webp/jxl) sets it immediately and
   keeps it after a reboot.
-- **Screen scale or mode**: Macs: the `MONITORS` section of `dotfiles/hypr/hyprland.lua`;
-  workhorse: `dotfiles/hypr/monitors-workhorse.lua`. Apply changes with `hyprctl reload`.
-- **Mouse speed** (workhorse, no acceleration): `sensitivity` in `hyprland.lua`, -1.0 to
+- **Screen scale or mode**: Macs: the `MONITOR` section of `macbook/hypr/machine.lua`;
+  workhorse: `amd64/hypr/monitors-workhorse.lua`. Apply changes with `hyprctl reload`.
+- **Mouse speed** (workhorse, no acceleration): `sensitivity` in `common/hypr/hyprland.lua`, -1.0 to
   1.0, roughly a multiplier of 1 + sensitivity (-0.3 ≈ 70%).
-- **Firefox address bar**: `dotfiles/firefox/policies.json` (bookmarks only, never
-  searches); reinstall it with the `install` line in `lib/common.sh`.
-- **Bar**: `dotfiles/waybar/config.jsonc` and `style.css`. PCs without Wi-Fi use
-  `config-wired.jsonc` on top of it. On the notched Pros,
-  `config-notch.jsonc` overrides the height and layout.
+- **Firefox address bar**: `common/firefox/policies.json` (bookmarks only, never
+  searches); reinstall it with the `install` line in `common/lib.sh`.
+- **Bar**: `common/waybar/config.jsonc` and `style.css`, the one bar config. PCs without
+  Wi-Fi use `amd64/waybar/config-wired.jsonc` on top of it. On the notched Pros,
+  `macbook/hypr/machine.lua` raises its height to the notch's at login (37 px) when the
+  kernel shows the notch strip (`appledrm.show_notch=1`); there is no separate notch config.
 - **Check the config**: `Hyprland --verify-config`.
 
 Hyprland 0.57 uses a **Lua** config (`hyprland.lua`). Most guides online still show the
@@ -261,7 +267,7 @@ sudo rm /etc/systemd/logind.conf.d/10-lid-lock.conf    # Macs only
 - **No 3.5mm jack on the workhorse** (`dmesg` says `no codecs found`): the BIOS has HD
   Audio turned off. Enable it; no kernel option can reach the codec while it's off.
 - **ly in the top-left of the 5K**: the console is shared by all monitors and sized to the
-  smallest; `install-amd64.sh` boots the 5K at that size (`video=DP-1:2560x1440M@60`).
+  smallest; `amd64/install.sh` boots the 5K at that size (`video=DP-1:2560x1440M@60`).
   Re-run it after changing monitors.
 - **Screen sharing doesn't work**: `systemctl --user is-active graphical-session.target`
   must say `active` (started by `hyprland-session.target` at login).

@@ -1,4 +1,5 @@
 *.log
-dotfiles/hypr/monitors.lua
 __pycache__/
-dotfiles/fontconfig/local.conf
+# per machine, created by the installers
+amd64/hypr/monitors.lua
+common/fontconfig/local.conf

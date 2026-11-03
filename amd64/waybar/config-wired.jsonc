@@ -1,6 +1,6 @@
-// PCs without Wi-Fi hardware (e.g. the Ryzen mini PC on ethernet), chosen by hyprland.lua.
+// PCs without Wi-Fi hardware (e.g. the Ryzen mini PC on ethernet), chosen by amd64/hypr/machine.lua.
 // No Wi-Fi picker or Bluetooth: shows the ethernet link, live up/down traffic and live
-// APU power in watts instead. Everything else comes from config.jsonc (values here win).
+// APU power in watts instead. Everything else comes from common/waybar/config.jsonc (values here win).
 {
     "include": ["~/.config/waybar/config.jsonc"],
     "modules-right": [

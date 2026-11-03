@@ -4,7 +4,7 @@
 # only expose current_now/voltage_now. No battery (desktop): print nothing -> module hidden.
 # System battery: type Battery, but not a wireless mouse/keyboard (those have scope=Device)
 #
-# power.sh --live  (config-wired.jsonc, PCs without battery): APU package power from the
+# power.sh --live  (amd64/waybar/config-wired.jsonc, PCs without battery): APU package power from the
 # amdgpu sensor (PPT = CPU + GPU + SoC), one JSON line every 5 s (average of 1 s
 # samples), never exits. Wall power is higher (RAM, SSD, NIC, PSU losses). RAPL would be similar but is root-only.
 if [ "${1:-}" = --live ]; then

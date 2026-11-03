@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Hyprland desktop for Apple silicon MacBooks on Fedora Asahi Remix.
-# Reproduces the full setup on a fresh *minimal* install. Shared steps: lib/common.sh.
+# Reproduces the full setup on a fresh *minimal* install. Shared steps: common/lib.sh.
 #   Mac-only here: keyboard swaps, console font, notch (14"/16" Pro), "never sleep" lid
-#   policy, battery charge limit, power-off at 2%. Panel scale per model: hyprland.lua.
+#   policy, battery charge limit, power-off at 2%. Panel scale per model: macbook/hypr/machine.lua.
 # Tested on: MacBook Air M1 (Fedora Asahi Remix 44).
 #
 # Usage (as your normal user, not root; sudo asks for your password once):
 #   ./install.sh   (detects the Mac and runs this script)   reboot, pick "Hyprland" in ly
 # Idempotent: safe to re-run. Output is appended to install.log.
 # =============================================================================
-source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../common/lib.sh"
 
 if ! { [ -r /proc/device-tree/compatible ] && tr -d '\0' < /proc/device-tree/compatible | grep -q apple; }; then
-  echo "Not an Apple silicon Mac: use install-amd64.sh (or ./install.sh to pick automatically)."; exit 1
+  echo "Not an Apple silicon Mac: use amd64/install.sh (or ./install.sh to pick automatically)."; exit 1
 fi
 MODEL=$(tr -d '\0' < /proc/device-tree/model)
 # System battery (macsmc-battery). Wireless mice/keyboards also report type=Battery but
@@ -44,8 +44,10 @@ echo 'options hid_apple swap_fn_leftctrl=1 fnmode=2 swap_opt_cmd=1' \
 step "Console: US keymap, large font for the Retina panel"
 printf 'KEYMAP="us"\nFONT="latarcyrheb-sun32"\n' | sudo tee /etc/vconsole.conf
 
-# MacBook Pro 14"/16": use the full panel incl. the strip beside the notch. hyprland.lua then
-# sets 3024x1964@120 (14") / 3456x2234@120 (16") at scale 2 and waybar fills the notch strip.
+# MacBook Pro 14"/16": use the full panel incl. the strip beside the notch. Once this kernel
+# arg is active, macbook/hypr/machine.lua sets 3024x1964@120 (14") / 3456x2234@120 (16") at
+# scale 2 and starts the shared bar with its height raised to the notch's (no separate
+# bar config: the override is generated at login).
 if [[ "$MODEL" == *"14-inch"* || "$MODEL" == *"16-inch"* ]]; then
   step "MacBook Pro 14/16\": kernel arg appledrm.show_notch=1 (takes effect after reboot)"
   kernel_args appledrm.show_notch=1

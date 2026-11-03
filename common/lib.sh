@@ -1,13 +1,17 @@
 # shellcheck shell=bash
 # =============================================================================
-# Shared by install-asahi.sh and install-amd64.sh (sourced, not run). Holds the helpers
-# and the steps both machines run identically; each platform script calls them in order
+# Shared by macbook/install.sh and amd64/install.sh (sourced, not run). Holds the helpers
+# and the steps both machines run identically; each machine's script calls them in order
 # around its own steps. Nothing here checks the platform.
+#   COMMON       common/: dotfiles every machine shares (linked into ~/.config)
+#   MACHINE_DIR  macbook/ or amd64/: the sourcing script's folder, linked as
+#                ~/.config/hypr-platform (machine.lua, machine-only scripts and configs)
 # =============================================================================
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DOT="$REPO_DIR/dotfiles"
+COMMON="$REPO_DIR/common"
+MACHINE_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
 exec > >(tee -a "$REPO_DIR/install.log") 2>&1
 
 step() { printf '\n\033[1;34m==> [%s] %s\033[0m\n' "$(date '+%F %T')" "$*"; }
@@ -116,7 +120,7 @@ common_browsers() {
   step "Firefox: address bar never web-searches, suggests from bookmarks only, never history (policy)"
   # Firefox always needs a default engine; with keyword.enabled off it is never used from
   # the address bar. Change suggestions in dotfiles/firefox/policies.json, check about:policies.
-  sudo install -Dm644 "$DOT/firefox/policies.json" /etc/firefox/policies/policies.json
+  sudo install -Dm644 "$COMMON/firefox/policies.json" /etc/firefox/policies/policies.json
 
   step "Brave default fonts for new profiles (pages without their own CSS fonts)"
   # Applied on Brave's first run; Standard/Sans = Noto Sans, Serif = Noto Serif, Fixed = JetBrains Mono
@@ -168,19 +172,26 @@ common_login() {
 }
 
 common_dotfiles() {
-  step "Link dotfiles into ~/.config"
+  step "Link dotfiles into ~/.config (common/ + ~/.config/hypr-platform -> $(basename "$MACHINE_DIR")/)"
   mkdir -p "$HOME/.config" "$HOME/.local/bin" "$HOME/Pictures/wallpapers" "$HOME/Pictures/Screenshots"
   local app target
   for app in hypr waybar kitty fuzzel mako fontconfig; do
     target="$HOME/.config/$app"
     if [ -e "$target" ] && [ ! -L "$target" ]; then mv "$target" "$target.bak.$(date +%s)"; fi
-    ln -sfn "$DOT/$app" "$target"
+    ln -sfn "$COMMON/$app" "$target"
   done
+  # the machine's own folder; common/hypr/hyprland.lua loads hypr/machine.lua from it
+  ln -sfn "$MACHINE_DIR" "$HOME/.config/hypr-platform"
   # graphical-session.target for the portals (screen sharing), started by hyprland.lua
   mkdir -p "$HOME/.config/systemd/user"
-  ln -sfn "$DOT/systemd/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
+  ln -sfn "$COMMON/systemd/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
   systemctl --user daemon-reload
-  chmod +x "$DOT"/waybar/scripts/*.sh "$DOT"/hypr/scripts/*.sh "$DOT"/hypr/scripts/*.py
+  find "$COMMON" "$MACHINE_DIR" -path '*/scripts/*' \( -name '*.sh' -o -name '*.py' \) -exec chmod +x {} +
+  # Before the common/ + macbook/ + amd64/ layout everything lived in dotfiles/; git leaves
+  # that folder behind holding only the per-machine links (monitors.lua, local.conf).
+  if [ -d "$REPO_DIR/dotfiles" ] && [ -z "$(find "$REPO_DIR/dotfiles" ! -type d ! -type l)" ]; then
+    rm -rf "$REPO_DIR/dotfiles"
+  fi
   ln -sfn "$HOME/.config/hypr/scripts/wallpaper.sh" "$HOME/.local/bin/wallpaper"
 
   step "Default wallpaper (only if none chosen yet; change with: wallpaper /path/img)"
