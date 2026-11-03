@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Hyprland desktop for the amd64 workhorse: always-on AMD desktop (Ryzen 7 7840HS /
-# Radeon 780M mini PC, ASUS XG27JCG 5K + Dell U2717D portrait, wired network, no
+# Radeon 780M mini PC, ASUS XG27JCG 5K, wired network, no
 # Bluetooth, no battery). Reproduces the full setup on a fresh *minimal* Fedora install.
 # Shared steps: common/lib.sh. Machine dotfiles: this folder (amd64/).
 #   Here: AMD video decoding, firmware updates, native console mode, never sleep, CPU
 #   energy preference, USB4 authorization, btrfs snapshots + scrub, automatic security
-#   updates, firewall, hostname, audio fixes, monitor layout, low-dpi font tuning.
+#   updates, firewall, hostname, audio fixes, monitor layout.
 #
 # Usage (as your normal user, not root; sudo asks for your password once):
 #   ./install.sh   (detects the PC and runs this script)   reboot, pick "Hyprland" in ly
@@ -61,37 +61,20 @@ echo "open services: $(sudo firewall-cmd --list-services)"
 
 common_login
 
-# Boot console + ly. The kernel shows one console on every monitor, sized to the smallest
-# screen (it shrinks when a second monitor is detected), at 0,0 on each. So a 5K next to
-# a 1440p shows ly in the 5K's top-left quarter. Fix: boot every larger monitor at the
-# smallest monitor's resolution (CVT timing, "M"): 2560x1440 on the 5K is an exact 2x
-# upscale and ly fills it, centred. Alone, a monitor that prefers a smaller mode than its
-# panel (the ASUS XG27JCG 5K prefers 3840x2160, upscaled and off-centre) gets its native
-# mode instead. Hyprland sets the real modes at login. Fake 4K input modes of 1440p
-# monitors are ignored, as in hypr/scripts/monitors.py.
-native() { grep -vxE '3840x2160|4096x2160' "$1/modes" | sort -t x -k1,1n -k2,2n -u | tail -1; }
-conns=()
+# Some monitors prefer a smaller mode than their panel (the ASUS XG27JCG 5K prefers
+# 3840x2160). The text console and ly then run upscaled and off-centre. Force the native
+# mode at boot (fake 4K input modes of 1440p monitors excluded, as in
+# hypr/scripts/monitors.py). Hyprland sets the real modes at login.
 for c in /sys/class/drm/card*-*; do
-  [ "$(cat "$c/status" 2>/dev/null)" = connected ] && conns+=("$c")
+  [ "$(cat "$c/status" 2>/dev/null)" = connected ] || continue
+  name=${c#*card?-}; pref=$(head -1 "$c/modes")
+  n=$(grep -vxE '3840x2160|4096x2160' "$c/modes" | sort -t x -k1,1n -k2,2n -u | tail -1)
+  [ -n "$n" ] && [ "$n" != "$pref" ] || continue
+  step "Console: $name at its native ${n} at boot (prefers ${pref})"
+  kernel_args "video=$name:${n}@60"
 done
-small=""
-for c in "${conns[@]}"; do
-  n=$(native "$c"); [ -n "$n" ] || continue
-  if [ -z "$small" ] || [ $(( ${n%x*} * ${n#*x} )) -lt $(( ${small%x*} * ${small#*x} )) ]; then small=$n; fi
-done
-for c in "${conns[@]}"; do
-  name=${c#*card?-}; n=$(native "$c"); pref=$(head -1 "$c/modes")
-  if [ "${#conns[@]}" -gt 1 ]; then
-    [ "$n" != "$small" ] || continue
-    step "Console: $name at ${small} at boot (the smallest monitor's size, so ly fills it)"
-    kernel_args "video=$name:${small}M@60"
-  elif [ -n "$n" ] && [ "$n" != "$pref" ]; then
-    step "Console: $name at its native ${n} at boot (prefers ${pref})"
-    kernel_args "video=$name:${n}@60"
-  fi
-done
-step "Console font: 8x16 (the console is at most 2560x1440 here, upscaled on the 5K)"
-printf 'KEYMAP="us"\nFONT="latarcyrheb-sun16"\n' | sudo tee /etc/vconsole.conf
+step "Console: US keymap, large font for the 5K (as on the Retina Macs)"
+printf 'KEYMAP="us"\nFONT="latarcyrheb-sun32"\n' | sudo tee /etc/vconsole.conf
 sudo dracut -f
 
 # =============================================================================
@@ -176,8 +159,8 @@ if [ -f "$OLD_MON" ] && [ ! -L "$OLD_MON" ] && [ ! -e "$MACHINE_DIR/hypr/monitor
   mv "$OLD_MON" "$MACHINE_DIR/hypr/monitors.lua"
 fi
 common_dotfiles
-step "Workhorse dotfiles: monitor layout, audio rules, webcam viewer, low-dpi fonts"
-# Monitor layout (5K ASUS + portrait Dell), matched by monitor name. `monitors-setup`
+step "Workhorse dotfiles: monitor layout, audio rules, webcam viewer"
+# Monitor layout (ASUS 5K), matched by monitor name. `monitors-setup`
 # regenerates a plain monitors.lua for other monitors. Loaded by amd64/hypr/machine.lua.
 [ -e "$MACHINE_DIR/hypr/monitors.lua" ] || ln -sfn monitors-workhorse.lua "$MACHINE_DIR/hypr/monitors.lua"
 ln -sfn "$MACHINE_DIR/hypr/scripts/monitors.py" "$HOME/.local/bin/monitors-setup"
@@ -186,14 +169,8 @@ ln -sfn "$MACHINE_DIR/wireplumber" "$HOME/.config/wireplumber"
 # "Webcam" in the launcher: raw camera image in mpv
 mkdir -p "$HOME/.local/share/applications"
 ln -sfn "$MACHINE_DIR/applications/webcam.desktop" "$HOME/.local/share/applications/webcam.desktop"
-# Light hinting + vertical subpixels for the ~100 ppi portrait Dell; scale-2 screens still
-# render like the Macs because Chromium/GTK4 ignore hinting there. Not in git (local.conf),
-# included by common/fontconfig/fonts.conf.
-ln -sfn "$MACHINE_DIR/fontconfig/lowdpi-hinting.conf" "$COMMON/fontconfig/local.conf"
 
 common_session
-# vertical subpixels for the portrait (rotated clockwise) Dell, as in lowdpi-hinting.conf
-gsettings set org.gnome.desktop.interface font-rgba-order 'vrgb'
 
 common_verify
 step "Done. Reboot and pick \"Hyprland\" in ly (not \"Hyprland (uwsm-managed)\")."

@@ -7,7 +7,7 @@ machine takes a fresh *minimal* install to the full desktop.
 | Folder | What's in it |
 |---|---|
 | `macbook/` | Apple silicon MacBooks: `install.sh`, `hypr/machine.lua` (panel, touchpad, brightness keys, lid, bar), battery notifications |
-| `amd64/` | The amd64 workhorse, an always-on AMD desktop (Ryzen 7 7840HS mini PC, ASUS 5K + portrait Dell): `install.sh`, `hypr/machine.lua` (monitors, mouse, bar), the monitor layout and `monitors-setup`, the wired bar, audio rules, Webcam launcher, low-dpi font tuning |
+| `amd64/` | The amd64 workhorse, an always-on AMD desktop (Ryzen 7 7840HS mini PC, ASUS 5K): `install.sh`, `hypr/machine.lua` (monitors, mouse, bar), the monitor layout and `monitors-setup`, the wired bar, audio rules, Webcam launcher |
 | `common/` | Everything both share: `lib.sh` (install steps, sourced by both scripts) and the dotfiles (`hypr/hyprland.lua`, waybar, kitty, fuzzel, mako, fontconfig, Firefox policy, systemd target) |
 | `install.sh` | Detects the machine and runs `macbook/install.sh` or `amd64/install.sh` |
 
@@ -103,10 +103,10 @@ At the **ly** login screen, choose the session **`Hyprland`** with ← →. Don'
 | Audio (workhorse) | The USB mic's headphone output and the webcam's microphone are hidden (`amd64/wireplumber`): sound goes to real outputs, the dedicated mic is the only input. "Webcam" in the launcher shows the raw camera image (mpv). |
 | Apps | Thunar (+ USB/phone/trash support, thumbnails, archives), Brave (default browser), Firefox + uBlock Origin (work apps), Loupe (images), mpv (video/audio), GNOME Calculator, git, vim, htop, btop |
 | Codecs | RPM Fusion ffmpeg (H.264, HEVC, VP9, AV1) |
-| Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing. The workhorse adds light hinting and vertical subpixel order (`vrgb`) for the portrait Dell; the 5K at scale 2 looks the same either way. |
+| Fonts | Brave defaults: Noto Sans / Noto Serif / JetBrains Mono. JetBrainsMono Nerd Font (bar icons), Inter/Liberation/Noto/Roboto in place of Apple and Windows web fonts, color emoji, CJK. No hinting, subpixel RGB antialiasing, the same on every machine (all ~220 ppi screens at scale 2). |
 | Security | SSH server disabled (re-enable: `sudo systemctl enable --now sshd`); on the workhorse the firewall also closes its port |
 | Screen sharing | `hyprland-session.target` starts `graphical-session.target`, which the desktop portal needs (Meet/Zoom screen sharing, file pickers) |
-| Console and login | Black and white only (console palette + ly colours). On the workhorse the console boots at 2560×1440 on both screens, so ly fills the 5K, centred |
+| Console and login | Black and white only (console palette + ly colours). On the workhorse the console boots at the 5K's native 5120×2880 (it prefers 3840×2160), with the large console font |
 | Misc | gnome-keyring unlocked at login, standard home folders, power tools (`sensors`, `powertop`) |
 
 Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's official repo.
@@ -118,20 +118,15 @@ Repositories added: COPR `sdegler/hyprland`, RPM Fusion free, and Brave's offici
 | MacBook Air M1 / Pro 13" | 2560×1600, scale 1.667 (looks like 1536×960) | |
 | MacBook Pro 14" | 3024×1964 @ 120 Hz, scale 2 (looks like 1512×982) | Adds the kernel argument `appledrm.show_notch=1`; the bar fills the strip beside the notch (same bar config, height raised to the notch's at login) |
 | MacBook Pro 16" | 3456×2234 @ 120 Hz, scale 2 (looks like 1728×1117) | Same notch handling |
-| Workhorse | ASUS 5K + portrait Dell | Tracked layout (see below) |
+| Workhorse | ASUS 5K | Tracked layout (see below) |
 
 ### Workhorse monitors
 
 `amd64/hypr/monitors-workhorse.lua` (tracked; `amd64/install.sh` links
 `amd64/hypr/monitors.lua` to it). Monitors are matched by name, not port, so moving a cable changes
 nothing:
-- **ASUS XG27JCG**: 5120×2880 @ 120 Hz, scale 2, primary, workspaces 1–8 and 10.
-  The monitor offers 5K @ 165 Hz, but this APU's display engine can't drive it, and the
-  monitor rejects anything in between.
-- **Dell U2717D**: rotated 90° clockwise (portrait, 1440×2560), right of the ASUS and
-  vertically centred, workspace 9 (Super+9). Two windows stack top and bottom, each
-  using the full width. 60 Hz: its scaler rejects 68 Hz and up on HDMI and DP (65 Hz
-  works over DP, not worth a USB4 port).
+- **ASUS XG27JCG**: 5120×2880 @ 120 Hz, scale 2. The monitor offers 5K @ 165 Hz, but
+  this APU's display engine can't drive it, and the monitor rejects anything in between.
 
 **Other monitors**: `monitors-setup` (`amd64/hypr/scripts/monitors.py`) writes a fresh
 `amd64/hypr/monitors.lua` from the connected monitors (the tracked layout stays). For each monitor it picks:
@@ -154,7 +149,7 @@ If 120 Hz isn't available, Hyprland falls back to the panel's standard mode.
 
 On the **workhorse**, Alt and Super are swapped: **physical Alt is Super** (next to the
 space bar) and the Windows key sends Alt. **Print** captures an area and **Shift+Print**
-the whole screen. Everything else in the table works the same. Super+9 is the Dell.
+the whole screen. Everything else in the table works the same.
 
 On the **Macs**, because Cmd and Option are swapped, **physical ⌘ Cmd sends Alt**, and **physical ⌥ Option
 is the Super key** (shown as *Super* below). The physical left **Ctrl** key acts as
@@ -266,9 +261,9 @@ sudo rm /etc/systemd/logind.conf.d/10-lid-lock.conf    # Macs only
   again. Every step is safe to repeat.
 - **No 3.5mm jack on the workhorse** (`dmesg` says `no codecs found`): the BIOS has HD
   Audio turned off. Enable it; no kernel option can reach the codec while it's off.
-- **ly in the top-left of the 5K**: the console is shared by all monitors and sized to the
-  smallest; `amd64/install.sh` boots the 5K at that size (`video=DP-1:2560x1440M@60`).
-  Re-run it after changing monitors.
+- **ly small or off-centre on the 5K**: the 5K prefers 3840×2160, so `amd64/install.sh`
+  boots it at its native mode (`video=DP-1:5120x2880@60`). Re-run it after changing
+  monitors.
 - **Screen sharing doesn't work**: `systemctl --user is-active graphical-session.target`
   must say `active` (started by `hyprland-session.target` at login).
 - **Hyprland problems**: run `hyprctl configerrors`. Logs are in

@@ -188,7 +188,7 @@ common_dotfiles() {
   systemctl --user daemon-reload
   find "$COMMON" "$MACHINE_DIR" -path '*/scripts/*' \( -name '*.sh' -o -name '*.py' \) -exec chmod +x {} +
   # Before the common/ + macbook/ + amd64/ layout everything lived in dotfiles/; git leaves
-  # that folder behind holding only the per-machine links (monitors.lua, local.conf).
+  # that folder behind holding only the per-machine links (monitors.lua, fontconfig/local.conf).
   if [ -d "$REPO_DIR/dotfiles" ] && [ -z "$(find "$REPO_DIR/dotfiles" ! -type d ! -type l)" ]; then
     rm -rf "$REPO_DIR/dotfiles"
   fi

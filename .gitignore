@@ -2,4 +2,3 @@
 __pycache__/
 # per machine, created by the installers
 amd64/hypr/monitors.lua
-common/fontconfig/local.conf
