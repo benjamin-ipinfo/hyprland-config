@@ -169,6 +169,19 @@ end
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
+-- MX Master 3S thumb buttons (below the side wheel) → QGIS shortcuts, only when
+-- QGIS is focused. Lower = mouse:275 (back), upper = mouse:276 (forward).
+local function qgis_shortcut(key)
+    return function()
+        local w = hl.get_active_window()
+        if w and w.class == "org.qgis.qgis" then
+            hl.dispatch(hl.dsp.send_shortcut({ mods = "CTRL SHIFT", key = key }))
+        end
+    end
+end
+hl.bind("mouse:275", qgis_shortcut("p")) -- lower: Ctrl+Shift+P
+hl.bind("mouse:276", qgis_shortcut("i")) -- upper: Ctrl+Shift+I
+
 -- Media / brightness keys (work on the lock screen too)
 local held = { locked = true, repeating = true }
 hl.bind("XF86AudioRaiseVolume",  hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), held)
