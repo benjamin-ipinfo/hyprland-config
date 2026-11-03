@@ -6,4 +6,4 @@
 local ASUS = "desc:ASUSTek COMPUTER INC XG27JCG TBLMQV020680"
 
 -- ASUSTek COMPUTER INC XG27JCG TBLMQV020680 (217 ppi)
-hl.monitor({ output = ASUS, mode = "5120x2880@119.99", position = "0x0", scale = 2, vrr = 2 })
+hl.monitor({ output = ASUS, mode = "5120x2880@119.99", position = "0x0", scale = 2, vrr = 0 })
