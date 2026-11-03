@@ -1,0 +1,26 @@
+{
+  "policies": {
+    "SearchSuggestEnabled": false,
+    "FirefoxSuggest": {
+      "WebSuggestions": false,
+      "SponsoredSuggestions": false,
+      "ImproveSuggest": false,
+      "Locked": true
+    },
+    "Preferences": {
+      "keyword.enabled":                        { "Value": false, "Status": "locked" },
+      "browser.search.suggest.enabled":         { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.searches":        { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.engines":         { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.trending":        { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.recentsearches":  { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.bookmark":        { "Value": true,  "Status": "locked" },
+      "browser.urlbar.suggest.history":         { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.openpage":        { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.topsites":        { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.remotetab":       { "Value": false, "Status": "locked" },
+      "browser.urlbar.suggest.quickactions":    { "Value": false, "Status": "locked" },
+      "browser.urlbar.autoFill":                { "Value": false, "Status": "locked" }
+    }
+  }
+}

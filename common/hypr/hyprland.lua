@@ -1,47 +1,52 @@
--- Hyprland config — MacBook Air M1 (Fedora Asahi)
+-- Hyprland config shared by every machine (Apple silicon MacBooks and amd64 desktops).
 -- Hyprland >= 0.57 uses Lua config. API stubs: /usr/share/hypr/stubs/hl.meta.lua
 -- Docs: https://wiki.hypr.land/configuring/
+--
+-- Machine-specific parts (monitors, keyboard/mouse/touchpad, extra binds, which bar to
+-- start) live in the machine's folder of the repo: macbook/ or amd64/. The installer
+-- links ~/.config/hypr-platform to that folder; its hypr/machine.lua is loaded below.
 
----- MONITORS ----
--- Per-machine panel settings, detected from the device-tree model string, e.g.
---   "Apple MacBook Air (M1, 2020)" / "Apple MacBook Pro (14-inch, M1 Pro, 2021)"
---   Air 13" / Pro 13"  2560x1600         -> scale 1.666667 (looks like 1536x960)
---   Pro 14" (notch)    3024x1964 @120Hz  -> scale 2        (looks like 1512x982, macOS default)
---   Pro 16" (notch)    3456x2234 @120Hz  -> scale 2        (looks like 1728x1117, macOS default)
--- The notch area only exists with kernel arg appledrm.show_notch=1 (install.sh sets it on
--- 14"/16"); waybar then uses config-notch.jsonc (bar as tall as the notch, nothing centred).
--- If a mode isn't offered by the kernel, Hyprland falls back to the preferred mode.
-local function model()
-    local f = io.open("/proc/device-tree/model", "r")
+local function read(path)
+    local f = io.open(path, "r")
     if not f then return "" end
-    local m = f:read("*a") or ""
+    local s = f:read("*a") or ""
     f:close()
-    return m
+    return s
 end
-local machine = model()
-local panel = { mode = "preferred", scale = 1.666667, notch = false }
-if machine:find("14%-inch") then
-    panel = { mode = "3024x1964@120", scale = 2, notch = true }
-elseif machine:find("16%-inch") then
-    panel = { mode = "3456x2234@120", scale = 2, notch = true }
-end
-hl.monitor({ output = "eDP-1", mode = panel.mode, position = "auto", scale = panel.scale })
-hl.monitor({ output = "",      mode = "preferred", position = "auto", scale = "auto" })
+local HOME = os.getenv("HOME")
 
 ---- PROGRAMS ----
 local terminal = "kitty"
 local menu     = "fuzzel"
 local files    = "thunar"
-local mod      = "SUPER" -- the Cmd key
+local mod      = "SUPER" -- Option key on the Macs (Cmd/Option swapped), Alt key on PCs (Alt/Win swapped)
+
+---- MACHINE ----
+-- machine.lua returns function(ctx) -> { input = {...}, autostart = function() ... end }
+local machine = {}
+local machine_lua = HOME .. "/.config/hypr-platform/hypr/machine.lua"
+if read(machine_lua) ~= "" then
+    machine = dofile(machine_lua)({ read = read, HOME = HOME, mod = mod }) or {}
+end
+-- anything not configured by machine.lua (new/external screens): sensible defaults.
+-- If a mode isn't offered, Hyprland falls back to the preferred mode.
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
 
 ---- AUTOSTART ----
 hl.on("hyprland.start", function()
-    hl.exec_cmd(panel.notch and "waybar -c ~/.config/waybar/config-notch.jsonc" or "waybar")
+    -- graphical-session.target for the portals (screen sharing, file pickers);
+    -- Hyprland has already exported WAYLAND_DISPLAY etc. to the systemd user manager
+    hl.exec_cmd("systemctl --user start hyprland-session.target")
     hl.exec_cmd("mako")
     hl.exec_cmd("hyprpaper")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
-    hl.exec_cmd("~/.config/hypr/scripts/battery-notify.sh")
+    -- the bar and anything else machine-specific
+    if machine.autostart then machine.autostart() else hl.exec_cmd("waybar") end
+end)
+
+hl.on("hyprland.shutdown", function()
+    os.execute("systemctl --user stop hyprland-session.target")
 end)
 
 ---- ENVIRONMENT ----
@@ -74,24 +79,20 @@ hl.config({
     },
 })
 
----- INPUT: Mac keyboard + trackpad ----
-hl.config({
-    input = {
-        kb_layout    = "us",
-        repeat_delay = 225, -- ms before a held key repeats (macOS-fast; default 600)
-        repeat_rate  = 40,  -- repeats per second (default 25)
-        follow_mouse = 1,
-        touchpad = {
-            natural_scroll       = true,
-            tap_to_click         = true,
-            clickfinger_behavior = true, -- 2-finger click = right click
-            disable_while_typing = true,
-        },
-    },
-})
-
--- 3-finger horizontal swipe switches workspace
-hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+---- INPUT ----
+-- Shared settings here; key swaps, pointer acceleration and the touchpad come from
+-- machine.lua (its `input` table is merged in, its values win).
+local input = {
+    kb_layout    = "us",
+    repeat_delay = 225, -- ms before a held key repeats (macOS-fast; default 600)
+    repeat_rate  = 40,  -- repeats per second (default 25)
+    follow_mouse = 1,
+    -- Speed, -1.0 .. 1.0 (0 = the mouse's native DPI, 1:1). With "flat" acceleration
+    -- it is a plain multiplier of about 1 + sensitivity: -0.3 is ~70% speed, -0.5 ~50%.
+    sensitivity  = 0,
+}
+for k, v in pairs(machine.input or {}) do input[k] = v end
+hl.config({ input = input })
 
 ---- KEYBINDS ----
 hl.bind(mod .. " + Return",    hl.dsp.exec_cmd(terminal))
@@ -103,6 +104,8 @@ hl.bind("ALT + F4",            hl.dsp.window.close())
 -- Mac-like screenshots (Super+Shift+3/4 are taken by move-to-workspace)
 hl.bind(mod .. " + ALT + 3",   hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mod .. " + ALT + 4",   hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh area"))
+hl.bind("Print",               hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh area")) -- PC keyboards
+hl.bind("SHIFT + Print",       hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mod .. " + L",         hl.dsp.exec_cmd("loginctl lock-session"))
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exit())
 hl.bind(mod .. " + F",         hl.dsp.window.fullscreen())
@@ -123,27 +126,14 @@ end
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
--- Media / brightness keys (work on the lock screen too)
+-- Media keys (work on the lock screen too). Brightness keys: macbook/hypr/machine.lua
 local held = { locked = true, repeating = true }
 hl.bind("XF86AudioRaiseVolume",  hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), held)
 hl.bind("XF86AudioLowerVolume",  hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      held)
 hl.bind("XF86AudioMute",         hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true })
--- screen: brightness keys · keyboard backlight: Shift + brightness keys
--- (pkill -RTMIN+8 refreshes the waybar brightness module immediately)
-local bl = function(args) return hl.dsp.exec_cmd("brightnessctl -q " .. args .. " && pkill -RTMIN+8 waybar") end
-hl.bind("XF86MonBrightnessUp",           bl("-c backlight -e4 -n2 set 5%+"), held)
-hl.bind("XF86MonBrightnessDown",         bl("-c backlight -e4 -n2 set 5%-"), held)
-hl.bind("SHIFT + XF86MonBrightnessUp",   bl("-d kbd_backlight set 10%+"),         held)
-hl.bind("SHIFT + XF86MonBrightnessDown", bl("-d kbd_backlight set 10%-"),         held)
 hl.bind("XF86AudioPlay",         hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioNext",         hl.dsp.exec_cmd("playerctl next"),       { locked = true })
 hl.bind("XF86AudioPrev",         hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
-
--- Lid: logind locks the session (HandleLidSwitch=lock, no suspend); here we
--- just switch the internal panel off while closed and back on when opened.
-local lid = "Apple SMC power/lid events"
-hl.bind("switch:on:"  .. lid, hl.dsp.dpms({ action = "off", monitor = "eDP-1" }), { locked = true })
-hl.bind("switch:off:" .. lid, hl.dsp.dpms({ action = "on",  monitor = "eDP-1" }), { locked = true })
 
 ---- WINDOW RULES ----
 -- Never lock/blank the screen while a fullscreen window is shown (video, slides)

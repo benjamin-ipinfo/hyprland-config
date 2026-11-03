@@ -1,0 +1,37 @@
+// PCs without Wi-Fi hardware (e.g. the Ryzen mini PC on ethernet), chosen by amd64/hypr/machine.lua.
+// No Wi-Fi picker or Bluetooth: shows the ethernet link, live up/down traffic and live
+// APU power in watts instead. Everything else comes from common/waybar/config.jsonc (values here win).
+{
+    "include": ["~/.config/waybar/config.jsonc"],
+    "modules-right": [
+        "privacy",
+        "network#wired",
+        "network#traffic",
+        "pulseaudio",
+        "custom/power-live",
+        "clock"
+    ],
+    "network#wired": {
+        "format": "󰈀 {ifname}",
+        "format-ethernet": "󰈀 {ifname}",
+        "format-linked": "󰈀 {ifname} (no IP)",
+        "format-disconnected": "󰈂 off",
+        "tooltip-format": "{ifname}: {ipaddr}/{cidr}\ngateway {gwaddr}\nright-click: settings",
+        "tooltip-format-disconnected": "Ethernet: disconnected",
+        "on-click-right": "nm-connection-editor"
+    },
+    // Live traffic on the default-route interface, bits/s with adaptive units (kb/M/G)
+    "network#traffic": {
+        "interval": 1,
+        "format": "↓{bandwidthDownBits} ↑{bandwidthUpBits}",
+        "format-ethernet": "↓{bandwidthDownBits} ↑{bandwidthUpBits}",
+        "format-wifi": "↓{bandwidthDownBits} ↑{bandwidthUpBits}",
+        "format-disconnected": "",
+        "tooltip-format": "{ifname}: ↓ {bandwidthDownBytes}  ↑ {bandwidthUpBytes}"
+    },
+    // Live APU package power (CPU + GPU + SoC), refreshed every second
+    "custom/power-live": {
+        "exec": "~/.config/waybar/scripts/power.sh --live",
+        "return-type": "json"
+    }
+}

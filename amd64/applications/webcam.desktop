@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Webcam
+Comment=Raw camera image (mpv, no recording, no effects)
+# First camera, MJPEG 1920x1080 at 30 fps (the EMEET C950's best mode); q closes
+Exec=mpv --profile=low-latency --untimed --no-osc --no-audio --title=Webcam --demuxer-lavf-o=input_format=mjpeg,video_size=1920x1080,framerate=30 av://v4l2:/dev/video0
+Icon=camera-web
+Categories=AudioVideo;Video;

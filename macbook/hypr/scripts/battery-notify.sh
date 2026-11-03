@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Low-battery notifications (mako). Warns once at 15% and once at 5% per discharge.
 # UPower powers off cleanly at 2% (/etc/UPower/UPower.conf.d/10-poweroff.conf).
-BAT=$(ls -d /sys/class/power_supply/*battery* 2>/dev/null | head -n1)   # macsmc-battery
+# System battery: type Battery, but not a wireless mouse/keyboard (those have scope=Device)
+BAT=""
+for p in /sys/class/power_supply/*; do
+  [ "$(cat "$p/type" 2>/dev/null)" = Battery ] && [ "$(cat "$p/scope" 2>/dev/null)" != Device ] && { BAT=$p; break; }
+done   # macsmc-battery on Macs, BAT0/BAT1 on PC laptops, empty on desktops
+[ -n "$BAT" ] || exit 0   # desktop: nothing to watch
 warned=100
 while sleep 60; do
   cap=$(<"$BAT/capacity"); status=$(<"$BAT/status")

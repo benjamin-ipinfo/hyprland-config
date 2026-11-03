@@ -1,1 +1,4 @@
 *.log
+__pycache__/
+# per machine, created by the installers
+amd64/hypr/monitors.lua
